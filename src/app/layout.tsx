@@ -12,13 +12,25 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
+    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
   ),
   title: "Cloudmark - Your Universal Bookmark Manager",
   description:
     "Save and access your bookmarks from anywhere with Cloudmark, the seamless cloud bookmarking tool for professionals and casual users alike",
-  keywords:
-    "bookmarks, cloud storage, bookmark manager, save links, web tool, productivity",
+  keywords: [
+    "cloudmark",
+    "cloud mark",
+    "bookmarks",
+    "book mark manager",
+    "bookmark manager",
+    "bookmark managers",
+    "bookmark organizer",
+    "bookmark saver",
+    "bookmarks manager",
+    "bookmark editor",
+    "web tool",
+    "productivity",
+  ],
   authors: [{ name: "Wesley Yang" }],
   creator: "Cloudmark",
   openGraph: {
