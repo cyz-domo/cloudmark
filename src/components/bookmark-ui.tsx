@@ -39,10 +39,10 @@ export function BookmarkUI({
         toast.status === "success"
           ? "success"
           : toast.status === "error"
-          ? "error"
-          : toast.status === "warning"
-          ? "warning"
-          : "info";
+            ? "error"
+            : toast.status === "warning"
+              ? "warning"
+              : "info";
       const message = decodeURIComponent(toast.message);
       showToast({
         title: t(toast.status),
@@ -66,7 +66,7 @@ export function BookmarkUI({
         refreshBookmarks();
       }
     },
-    [currentBookmarksData]
+    [currentBookmarksData],
   );
 
   const onUpdateBookmark = useCallback(
@@ -75,13 +75,13 @@ export function BookmarkUI({
         setCurrentBookmarksData({
           ...currentBookmarksData,
           bookmarks: currentBookmarksData.bookmarks.map((b) =>
-            b.uuid === bookmark.uuid ? bookmark : b
+            b.uuid === bookmark.uuid ? bookmark : b,
           ),
         });
         refreshBookmarks();
       }
     },
-    [currentBookmarksData]
+    [currentBookmarksData],
   );
 
   const onDeleteBookmark = useCallback(
@@ -90,17 +90,17 @@ export function BookmarkUI({
         setCurrentBookmarksData({
           ...currentBookmarksData,
           bookmarks: currentBookmarksData.bookmarks.filter(
-            (b) => b.uuid !== uuid
+            (b) => b.uuid !== uuid,
           ),
         });
         refreshBookmarks();
       }
     },
-    [currentBookmarksData]
+    [currentBookmarksData],
   );
 
   // 过滤掉空分类
-  const validCategories = categories.filter(cat => cat.trim() !== '');
+  const validCategories = categories.filter((cat) => cat.trim() !== "");
 
   return (
     <div className="container relative">
@@ -152,7 +152,7 @@ export function BookmarkUI({
           <div className="stagger-container space-y-8">
             {validCategories.map((category, categoryIndex) => {
               const categoryBookmarks = bookmarksData.bookmarks.filter(
-                (b) => b.category === category
+                (b) => b.category === category,
               );
 
               if (categoryBookmarks.length === 0) return null;

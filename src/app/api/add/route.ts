@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           `/${defaultMark}?status=${status}&message=${message}`,
-          request.url
-        )
+          request.url,
+        ),
       );
     }
     if (!url) {
@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           `/${defaultMark}?status=${status}&message=${message}`,
-          request.url
-        )
+          request.url,
+        ),
       );
     }
 
@@ -43,13 +43,13 @@ export async function GET(request: NextRequest) {
       const status = "error";
       const message = encodeURIComponent(err.message);
       return NextResponse.redirect(
-        new URL(`/${mark}?status=${status}&message=${message}`, request.url)
+        new URL(`/${mark}?status=${status}&message=${message}`, request.url),
       );
     }
     const status = "success";
     const message = encodeURIComponent("bookmarkAdded");
     return NextResponse.redirect(
-      new URL(`/${mark}?status=${status}&message=${message}`, request.url)
+      new URL(`/${mark}?status=${status}&message=${message}`, request.url),
     );
   } catch (error) {
     const status = "error";
@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         `/${defaultMark}?status=${status}&message=${message}`,
-        request.url
-      )
+        request.url,
+      ),
     );
   }
 }

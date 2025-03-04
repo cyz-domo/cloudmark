@@ -120,7 +120,7 @@ export const updateBookmarkAction = createServerAction()
     }
 
     const bookmarkIndex = bookmarksdata.bookmarks.findIndex(
-      (b) => b.uuid === uuid
+      (b) => b.uuid === uuid,
     );
     if (bookmarkIndex === -1) {
       throw `Bookmark with UUID ${uuid} not found`;
@@ -168,7 +168,7 @@ export const deleteBookmarkAction = createServerAction()
     }
 
     const bookmarkIndex = bookmarksdata.bookmarks.findIndex(
-      (b) => b.uuid === uuid
+      (b) => b.uuid === uuid,
     );
     if (bookmarkIndex === -1) {
       throw `Bookmark with UUID ${uuid} not found`;

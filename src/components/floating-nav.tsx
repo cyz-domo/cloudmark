@@ -17,14 +17,14 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // 过滤空分类和没有书签的分类
-  const validCategories = categories.filter(cat => {
+  const validCategories = categories.filter((cat) => {
     // 过滤空分类名
-    if (cat.trim() === '') return false;
-    
+    if (cat.trim() === "") return false;
+
     // 过滤没有书签的分类
     if (!bookmarksData || !bookmarksData.bookmarks) return false;
     const categoryBookmarks = bookmarksData.bookmarks.filter(
-      (b: any) => b.category === cat
+      (b: any) => b.category === cat,
     );
     return categoryBookmarks.length > 0;
   });
@@ -34,15 +34,15 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
     const checkIsMobile = () => {
       setIsMobile(window.innerWidth < 1024);
     };
-    
+
     // 初始检查
     checkIsMobile();
-    
+
     // 监听窗口大小变化
-    window.addEventListener('resize', checkIsMobile);
-    
+    window.addEventListener("resize", checkIsMobile);
+
     return () => {
-      window.removeEventListener('resize', checkIsMobile);
+      window.removeEventListener("resize", checkIsMobile);
     };
   }, []);
 
@@ -50,7 +50,7 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
   useEffect(() => {
     const handleScroll = () => {
       const scrollPosition = window.scrollY + 200; // 添加一点偏移以提高用户体验
-      
+
       if (window.scrollY > 100) {
         setHasScrolled(true);
       } else {
@@ -59,7 +59,7 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
 
       // 查找当前滚动位置对应的分类
       let foundActive = false;
-      
+
       for (const category of validCategories) {
         const element = document.getElementById(`category-${category}`);
         if (element) {
@@ -74,16 +74,18 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
           }
         }
       }
-      
+
       // 如果没有找到活跃分类，但页面已滚动且有分类，则选择第一个分类
       if (!foundActive && hasScrolled && validCategories.length > 0) {
         // 检查是否滚动超过了第一个分类
-        const firstCategoryEl = document.getElementById(`category-${validCategories[0]}`);
+        const firstCategoryEl = document.getElementById(
+          `category-${validCategories[0]}`,
+        );
         if (firstCategoryEl && scrollPosition >= firstCategoryEl.offsetTop) {
           setActiveCategory(validCategories[0]);
         }
       }
-      
+
       // 如果滚动到页面顶部，取消活跃分类
       if (window.scrollY < 100) {
         setActiveCategory(null);
@@ -113,17 +115,17 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
         "fixed right-0 top-1/3 transform -translate-y-1/3 z-50 transition-all duration-500 ease-in-out hidden lg:block",
         isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-5",
         !hasScrolled && "pointer-events-none opacity-0",
-        isCollapsed ? "w-12" : "w-48"
+        isCollapsed ? "w-12" : "w-48",
       )}
     >
-      <div 
+      <div
         className={cn(
           "bg-blue-50/90 backdrop-blur-sm border border-blue-100 rounded-l-xl shadow-md transition-all duration-300 overflow-hidden",
-          isCollapsed ? "w-12" : "w-48"
+          isCollapsed ? "w-12" : "w-48",
         )}
       >
         {/* 标题栏同时作为折叠/展开按钮 */}
-        <button 
+        <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="w-full flex items-center gap-2 px-3 py-3 border-b border-blue-100/50 text-blue-600 hover:bg-blue-100/50 transition-colors text-left"
           aria-label={isCollapsed ? "展开导航" : "折叠导航"}
@@ -138,12 +140,9 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
             </>
           )}
         </button>
-        
+
         {/* 导航列表 */}
-        <div className={cn(
-          "py-2",
-          isCollapsed ? "px-1" : "px-2"
-        )}>
+        <div className={cn("py-2", isCollapsed ? "px-1" : "px-2")}>
           <ul className={cn("space-y-1")}>
             {validCategories.map((category) => (
               <li key={category}>
@@ -154,7 +153,7 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
                     activeCategory === category
                       ? "bg-blue-100 text-blue-600"
                       : "text-slate-500 hover:bg-blue-50 hover:text-blue-600",
-                    isCollapsed ? "justify-center px-2" : ""
+                    isCollapsed ? "justify-center px-2" : "",
                   )}
                   onClick={(e) => {
                     e.preventDefault();
@@ -171,17 +170,17 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
                       "shrink-0 rounded-full transition-all duration-200",
                       activeCategory === category
                         ? "w-2 h-2 bg-blue-500"
-                        : "w-1.5 h-1.5 bg-slate-300 group-hover:bg-blue-300"
+                        : "w-1.5 h-1.5 bg-slate-300 group-hover:bg-blue-300",
                     )}
                   />
-                  
+
                   {/* 分类名称 */}
                   {!isCollapsed && (
                     <span className="text-sm transition-all duration-200 whitespace-nowrap overflow-hidden text-ellipsis">
                       {category}
                     </span>
                   )}
-                  
+
                   {/* 活跃指示箭头 */}
                   {!isCollapsed && activeCategory === category && (
                     <ChevronRight className="h-3 w-3 ml-auto opacity-70 shrink-0" />
@@ -194,4 +193,4 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
       </div>
     </div>
   );
-} 
+}

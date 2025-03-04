@@ -7,7 +7,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useServerAction } from "zsa-react";
 import { useTranslations } from "next-intl";
-import { Loader2, Link, FileText, Tag, Pencil, Edit2, Plus } from "lucide-react";
+import {
+  Loader2,
+  Link,
+  FileText,
+  Tag,
+  Pencil,
+  Edit2,
+  Plus,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -118,7 +126,7 @@ export function DialogEdit({
     formData.append("url", data.url);
     formData.append("title", data.title);
     formData.append("description", data.description || "");
-    
+
     // 使用新分类或选择的分类
     const categoryValue = isCreatingNewCategory ? newCategory : data.category;
     formData.append("category", categoryValue);
@@ -240,7 +248,9 @@ export function DialogEdit({
                         >
                           <FormControl>
                             <SelectTrigger className="border-green-500/20 focus:border-green-500/40 bg-green-500/5 focus:ring-green-500/10">
-                              <SelectValue placeholder={t("categoryPlaceholder")} />
+                              <SelectValue
+                                placeholder={t("categoryPlaceholder")}
+                              />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
