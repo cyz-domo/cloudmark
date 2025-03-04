@@ -115,11 +115,355 @@
 }
 
 @layer utilities {
-  .hover-scale {
-    @apply transition-transform duration-200 ease-in-out;
+  /* 基础动画效果 */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
-  .hover-scale:hover {
-    @apply transform scale-105;
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideOutRight {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+  }
+
+  @keyframes fadeOutUp {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }
+
+  @keyframes staggerFadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* 通用动画类 */
+  .fade-in,
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  .fade-in-up,
+  .animate-fadeUp {
+    animation: fadeInUp 0.3s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  .fade-in-down {
+    animation: fadeInDown 0.3s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  .scale-in,
+  .animate-scaleIn {
+    animation: scaleIn 0.3s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  .slide-in-right {
+    animation: slideInRight 0.3s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  .slide-out-right {
+    animation: slideOutRight 0.3s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  .fade-out-up {
+    animation: fadeOutUp 0.2s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  /* 容器和项目动画 */
+  .stagger-container {
+    opacity: 1;
+    perspective: 1000px;
+    transform-style: preserve-3d;
+  }
+
+  .stagger-item {
+    animation: staggerFadeInUp 0.3s ease forwards;
+    animation-fill-mode: both;
+    opacity: 0;
+  }
+
+  /* 对话框动画 */
+  .dialog-content {
+    animation: scaleIn 0.2s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  /* 悬停效果 */
+  .hover-scale,
+  .feature-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    will-change: transform, box-shadow;
+  }
+
+  .hover-scale:hover,
+  .feature-card:hover {
+    transform: scale(1.05);
+  }
+
+  .hover-scale:active,
+  .active-scale:active {
+    transform: scale(0.95);
+  }
+
+  .hover-scale-sm {
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .hover-scale-sm:hover {
+    transform: scale(1.02);
+  }
+
+  .hover-scale-sm:active {
+    transform: scale(0.98);
+  }
+
+  .feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+      0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  }
+
+  /* 特定页面元素动画 */
+  .title-area {
+    animation: fadeInUp 0.5s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  .title-text {
+    animation: scaleIn 0.5s ease forwards;
+    animation-delay: 200ms;
+    animation-fill-mode: both;
+    opacity: 0;
+  }
+
+  .subtitle-text {
+    animation: fadeIn 0.5s ease forwards;
+    animation-delay: 300ms;
+    animation-fill-mode: both;
+    opacity: 0;
+  }
+
+  .button-container {
+    animation: fadeInUp 0.5s ease forwards;
+    animation-delay: 400ms;
+    animation-fill-mode: both;
+    opacity: 0;
+  }
+
+  .controls-area,
+  .filter-area {
+    animation: fadeInUp 0.4s ease forwards;
+    animation-delay: 500ms;
+    animation-fill-mode: both;
+    opacity: 0;
+  }
+
+  .empty-state {
+    animation: fadeInUp 0.5s ease forwards;
+    animation-delay: 600ms;
+    animation-fill-mode: both;
+    opacity: 0;
+  }
+
+  /* Toast通知动画 */
+  .toast-enter {
+    animation: fadeInDown 0.3s ease forwards;
+    animation-fill-mode: both;
+  }
+
+  .toast-exit {
+    animation: fadeInDown 0.3s ease forwards reverse;
+    animation-fill-mode: both;
+  }
+
+  /* 动画延迟类 */
+  .delay-100,
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+  .delay-200,
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  .delay-300,
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+  .delay-400,
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+  .delay-500,
+  .animation-delay-500 {
+    animation-delay: 500ms;
+  }
+  .delay-600,
+  .animation-delay-600 {
+    animation-delay: 600ms;
+  }
+  .delay-700,
+  .animation-delay-700 {
+    animation-delay: 700ms;
+  }
+  .delay-800,
+  .animation-delay-800 {
+    animation-delay: 800ms;
+  }
+  .delay-900,
+  .animation-delay-900 {
+    animation-delay: 900ms;
+  }
+  .animation-delay-1000 {
+    animation-delay: 1000ms;
+  }
+
+  /* 性能优化 */
+  .fade-in,
+  .fade-in-up,
+  .fade-in-down,
+  .fade-out-up,
+  .scale-in,
+  .slide-in-right,
+  .slide-out-right,
+  .dialog-content,
+  .toast-enter,
+  .toast-exit,
+  .animate-fadeIn,
+  .animate-fadeUp,
+  .animate-scaleIn,
+  .stagger-item,
+  .title-area,
+  .title-text,
+  .subtitle-text,
+  .button-container,
+  .controls-area,
+  .filter-area,
+  .empty-state {
+    will-change: opacity, transform;
+    backface-visibility: hidden;
+  }
+
+  /* 移动设备优化 */
+  @media (max-width: 768px) {
+    .fade-in-up,
+    .fade-in-down,
+    .grid-item {
+      animation-duration: 0.3s;
+    }
+  }
+
+  /* 减少动画 */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+
+  /* 阻止动画期间选择文本，提高性能 */
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-fadeIn,
+    .animate-fadeUp,
+    .animate-scaleIn,
+    .stagger-item,
+    .fade-in,
+    .fade-in-up,
+    .scale-in {
+      user-select: none;
+    }
+  }
+
+  /* 提高浏览器渲染性能 */
+  html,
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
