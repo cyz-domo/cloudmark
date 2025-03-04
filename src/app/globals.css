@@ -113,3 +113,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .hover-scale {
+    @apply transition-transform duration-200 ease-in-out;
+  }
+  
+  .hover-scale:hover {
+    @apply transform scale-105;
+  }
+}

@@ -110,21 +110,15 @@
     "addFirstBookmark": "Add your first bookmark",
     "loading": "Loading bookmarks...",
     "bookmarkletTip": "Drag this button to your bookmarks bar to save pages with one click",
+    "saveButton": "Save to {mark}",
+    "dragTip": "Drag to bookmarks bar",
     "demoMode": "Demo Mode",
     "demoDescription": "This is a demo collection. You can freely add, edit, and delete bookmarks. All changes will only affect your local view and won't be saved to the server.",
     "createOwn": "Create Your Own",
-    "gridView": "Grid View",
-    "categoryView": "Category View",
-    "sortBy": "Sort by",
-    "sortOptions": {
-      "time": "Time",
-      "title": "Title",
-      "category": "Category"
-    },
-    "categories": {
-      "all": "All",
-      "filter": "Filter"
-    }
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Information"
   },
   "Components": {
     "MarkInput": {
@@ -133,15 +127,6 @@
       "randomButton": "Random",
       "description": "The mark will be used to distinguish different bookmark collections. It's recommended to use meaningful phrases. Current mark: "
     },
-    "BookmarkButtons": {
-      "saveButton": "Save to {mark}",
-      "openButton": "Open {mark}",
-      "dragTip": "Drag to bookmarks bar"
-    },
-    "BookmarkletInstaller": {
-      "bookmarkTools": "Bookmark Tools",
-      "viewCode": "View Code"
-    },
     "BookmarkCard": {
       "visit": "Visit",
       "edit": "Edit",
@@ -149,35 +134,51 @@
       "deleteConfirm": "Are you sure you want to delete this bookmark?"
     },
     "BookmarkDialog": {
-      "addTitle": "Add New Bookmark",
+      "addTitle": "Add Bookmark",
+      "addDescription": "Add a new bookmark to collection {mark}",
       "editTitle": "Edit Bookmark",
-      "addDescription": "Add a new bookmark to your {mark} collection",
-      "editDescription": "Modify bookmark information",
+      "editDescription": "Edit bookmark information",
+      "deleteTitle": "Delete Bookmark",
+      "deleteDescription": "Are you sure you want to delete bookmark \"{title}\"?",
+      "deleteConfirmation": "This action cannot be undone. The bookmark will be permanently removed from your collection.",
       "url": "URL",
-      "urlPlaceholder": "https://example.com",
+      "urlPlaceholder": "Enter bookmark URL",
+      "urlDescription": "The URL of the webpage you want to bookmark",
       "title": "Title",
-      "titlePlaceholder": "My Bookmark",
+      "titlePlaceholder": "Enter bookmark title",
+      "titleDescription": "A descriptive title for your bookmark",
       "description": "Description",
-      "descriptionPlaceholder": "Add a description for this bookmark",
+      "descriptionPlaceholder": "Enter bookmark description (optional)",
+      "descriptionDescription": "Add some notes about this bookmark",
       "category": "Category",
       "categoryPlaceholder": "Select a category",
-      "newCategory": "New",
-      "newCategoryPlaceholder": "New category name",
-      "existingCategory": "Existing",
+      "categoryDescription": "Choose a category to organize your bookmarks",
+      "newCategory": "New Category",
+      "newCategoryPlaceholder": "Enter new category name",
+      "existingCategory": "Existing Categories",
+      "backToCategories": "Back to categories",
       "cancel": "Cancel",
+      "reset": "Reset",
       "addButton": "Add Bookmark",
       "updateButton": "Update Bookmark",
-      "saveButton": "Save Changes",
+      "deleteButton": "Delete Bookmark",
+      "adding": "Adding...",
+      "updating": "Updating...",
+      "deleting": "Deleting...",
+      "addSuccess": "Bookmark added successfully",
+      "updateSuccess": "Bookmark updated successfully",
+      "deleteSuccess": "Bookmark deleted successfully",
       "errors": {
         "urlRequired": "URL is required",
         "invalidUrl": "Please enter a valid URL",
-        "categoryRequired": "Category name is required",
-        "addFailed": "Failed to add bookmark. Please try again.",
-        "updateFailed": "Failed to update bookmark. Please try again."
-      }
-    },
-    "CategoryFilter": {
-      "title": "Filter by Category"
+        "categoryRequired": "Category is required",
+        "addFailed": "Failed to add bookmark",
+        "updateFailed": "Failed to update bookmark",
+        "deleteFailed": "Failed to delete bookmark"
+      },
+      "addBookmark": "Add Bookmark",
+      "delete": "Delete bookmark",
+      "edit": "Edit bookmark"
     }
   },
   "Notifications": {

@@ -6,22 +6,8 @@ export interface BookmarkInstance {
   createdAt: string;
   modifiedAt: string;
   category: string;
-  description?: string; // 添加可选的描述字段
+  description?: string;
 }
-
-export type InsertBookmarkInstance = Omit<
-  BookmarkInstance,
-  "uuid" | "createdAt" | "modifiedAt" | "favicon"
-> & {
-  mark: string;
-};
-
-export type UpdateBookmarkInstance = Omit<
-  BookmarkInstance,
-  "createdAt" | "modifiedAt" | "favicon"
-> & {
-  mark: string;
-};
 
 export interface BookmarksData {
   mark: string;
@@ -30,10 +16,4 @@ export interface BookmarksData {
 
 export const defaultMark = "default";
 export const defaultCategory = "default";
-
-export function createDefaultBookmarksData(mark: string): BookmarksData {
-  return {
-    mark,
-    bookmarks: [],
-  };
-}
+export const isDemoMark = (mark: string) => mark === "demo";

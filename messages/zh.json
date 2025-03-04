@@ -110,21 +110,15 @@
     "addFirstBookmark": "添加第一个书签",
     "loading": "正在加载书签...",
     "bookmarkletTip": "拖拽此按钮到书签栏，一键保存网页到此收藏",
+    "saveButton": "保存到 {mark}",
+    "dragTip": "拖拽到书签栏",
     "demoMode": "演示模式",
     "demoDescription": "这是一个演示集合，您可以自由添加、编辑和删除书签，所有操作仅在本地生效，不会保存到服务器。",
     "createOwn": "创建自己的收藏",
-    "gridView": "网格视图",
-    "categoryView": "分类视图",
-    "sortBy": "排序方式",
-    "sortOptions": {
-      "time": "时间",
-      "title": "标题",
-      "category": "分类"
-    },
-    "categories": {
-      "all": "全部",
-      "filter": "筛选"
-    }
+    "success": "成功",
+    "error": "错误",
+    "warning": "警告",
+    "info": "信息"
   },
   "Components": {
     "MarkInput": {
@@ -133,15 +127,6 @@
       "randomButton": "随机生成",
       "description": "标记将用于区分不同的书签收藏，建议使用有意义的词组。当前标记："
     },
-    "BookmarkButtons": {
-      "saveButton": "保存到 {mark}",
-      "openButton": "打开 {mark}",
-      "dragTip": "拖拽到书签栏"
-    },
-    "BookmarkletInstaller": {
-      "bookmarkTools": "书签工具",
-      "viewCode": "查看代码"
-    },
     "BookmarkCard": {
       "visit": "访问",
       "edit": "编辑",
@@ -149,35 +134,51 @@
       "deleteConfirm": "确定要删除这个书签吗？"
     },
     "BookmarkDialog": {
-      "addTitle": "添加新书签",
+      "addTitle": "添加书签",
+      "addDescription": "添加新书签到 {mark} 收藏夹",
       "editTitle": "编辑书签",
-      "addDescription": "将新书签添加到 {mark} 收藏中",
-      "editDescription": "修改书签信息",
+      "editDescription": "编辑书签信息",
+      "deleteTitle": "删除书签",
+      "deleteDescription": "确定要删除书签 \"{title}\" 吗？",
+      "deleteConfirmation": "此操作无法撤销，删除后书签将从您的收藏中永久移除。",
       "url": "网址",
-      "urlPlaceholder": "https://example.com",
+      "urlPlaceholder": "输入书签网址",
+      "urlDescription": "您想要收藏的网页地址",
       "title": "标题",
-      "titlePlaceholder": "我的书签",
+      "titlePlaceholder": "输入书签标题",
+      "titleDescription": "为您的书签添加一个描述性的标题",
       "description": "描述",
-      "descriptionPlaceholder": "为这个书签添加描述",
+      "descriptionPlaceholder": "输入书签描述（可选）",
+      "descriptionDescription": "添加一些关于这个书签的备注",
       "category": "分类",
-      "categoryPlaceholder": "选择一个分类",
-      "newCategory": "新建",
-      "newCategoryPlaceholder": "新分类名称",
-      "existingCategory": "已有",
+      "categoryPlaceholder": "选择分类",
+      "categoryDescription": "选择一个分类来组织您的书签",
+      "newCategory": "新建分类",
+      "newCategoryPlaceholder": "输入新分类名称",
+      "existingCategory": "现有分类",
+      "backToCategories": "返回分类列表",
       "cancel": "取消",
+      "reset": "重置",
       "addButton": "添加书签",
       "updateButton": "更新书签",
-      "saveButton": "保存更改",
+      "deleteButton": "删除书签",
+      "adding": "添加中...",
+      "updating": "更新中...",
+      "deleting": "删除中...",
+      "addSuccess": "书签添加成功",
+      "updateSuccess": "书签更新成功",
+      "deleteSuccess": "书签删除成功",
       "errors": {
-        "urlRequired": "网址是必填项",
+        "urlRequired": "请输入网址",
         "invalidUrl": "请输入有效的网址",
-        "categoryRequired": "分类名称是必填项",
-        "addFailed": "添加书签失败，请重试",
-        "updateFailed": "更新书签失败，请重试"
-      }
-    },
-    "CategoryFilter": {
-      "title": "分类筛选"
+        "categoryRequired": "请选择分类",
+        "addFailed": "添加书签失败",
+        "updateFailed": "更新书签失败",
+        "deleteFailed": "删除书签失败"
+      },
+      "addBookmark": "添加书签",
+      "delete": "删除书签",
+      "edit": "编辑"
     }
   },
   "Notifications": {

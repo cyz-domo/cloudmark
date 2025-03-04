@@ -2,5 +2,10 @@
   "files.associations": {
     "wrangler.json": "jsonc"
   },
-  "github.copilot.chat.localeOverride": "zh-CN"
+  "github.copilot.chat.localeOverride": "zh-CN",
+  "i18n-ally.localesPaths": [
+    "messages",
+    "src/i18n"
+  ],
+  "i18n-ally.keystyle": "nested"
 }

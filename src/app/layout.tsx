@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import { Github, FileText } from "lucide-react";
 import Link from "next/link";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import "./globals.css";
-import "@/components/animations.css";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { ToastProvider } from "@/components/toast-provider";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
