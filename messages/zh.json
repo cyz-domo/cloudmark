@@ -179,6 +179,12 @@
       "addBookmark": "添加书签",
       "delete": "删除书签",
       "edit": "编辑"
+    },
+    "FloatingNav": {
+      "title": "分类导航",
+      "expandNav": "展开导航",
+      "collapseNav": "折叠导航",
+      "jumpToCategory": "跳转到{category}分类"
     }
   },
   "Notifications": {

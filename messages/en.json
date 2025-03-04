@@ -179,6 +179,12 @@
       "addBookmark": "Add Bookmark",
       "delete": "Delete bookmark",
       "edit": "Edit bookmark"
+    },
+    "FloatingNav": {
+      "title": "Categories",
+      "expandNav": "Expand Navigation",
+      "collapseNav": "Collapse Navigation",
+      "jumpToCategory": "Jump to {category}"
     }
   },
   "Notifications": {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ChevronRight, FolderOpen, ChevronLeft, Folder } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface FloatingNavProps {
   categories: string[];
@@ -10,6 +11,7 @@ interface FloatingNavProps {
 }
 
 export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
+  const t = useTranslations("Components.FloatingNav");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
@@ -128,13 +130,13 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="w-full flex items-center gap-2 px-3 py-3 border-b border-blue-100/50 text-blue-600 hover:bg-blue-100/50 transition-colors text-left"
-          aria-label={isCollapsed ? "展开导航" : "折叠导航"}
+          aria-label={isCollapsed ? t("expandNav") : t("collapseNav")}
         >
           <Folder className="h-4 w-4 shrink-0" />
           {!isCollapsed && (
             <>
               <span className="text-sm font-medium whitespace-nowrap">
-                分类导航
+                {t("title")}
               </span>
               <ChevronLeft className="h-4 w-4 ml-auto" />
             </>
@@ -162,7 +164,7 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
                       ?.scrollIntoView({ behavior: "smooth" });
                     setActiveCategory(category);
                   }}
-                  aria-label={`跳转到${category}分类`}
+                  aria-label={t("jumpToCategory", { category })}
                 >
                   {/* 指示点 */}
                   <div
