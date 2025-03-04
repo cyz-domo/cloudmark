@@ -10,6 +10,7 @@ import { DialogAdd } from "./dialog-add";
 import { BookmarkletButton } from "./bookmarklet-button";
 import { useToast } from "./toast-provider";
 import { useRouter } from "next/navigation";
+import { FloatingNav } from "./floating-nav";
 
 export interface BookmarkUIProps {
   mark: string;
@@ -98,8 +99,14 @@ export function BookmarkUI({
     [currentBookmarksData]
   );
 
+  // 过滤掉空分类
+  const validCategories = categories.filter(cat => cat.trim() !== '');
+
   return (
     <div className="container relative">
+      {/* 悬浮导航 */}
+      <FloatingNav categories={validCategories} bookmarksData={bookmarksData} />
+
       {/* 装饰背景元素 */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-blue-500/10 rounded-full blur-3xl transform -translate-y-12 translate-x-12" />
@@ -107,7 +114,7 @@ export function BookmarkUI({
         <div className="absolute bottom-1/3 right-1/4 w-[30rem] h-[30rem] bg-indigo-500/5 rounded-full blur-3xl" />
       </div>
 
-      <div className="py-12 lg:py-16">
+      <div className="py-12 lg:py-16 scroll-smooth">
         <DemoBanner mark={mark} />
 
         {/* 标题区域 */}
@@ -143,7 +150,7 @@ export function BookmarkUI({
         {/* 书签列表 */}
         {bookmarksData && bookmarksData.bookmarks.length > 0 ? (
           <div className="stagger-container space-y-8">
-            {categories.map((category, categoryIndex) => {
+            {validCategories.map((category, categoryIndex) => {
               const categoryBookmarks = bookmarksData.bookmarks.filter(
                 (b) => b.category === category
               );
@@ -153,9 +160,10 @@ export function BookmarkUI({
               return (
                 <div
                   key={category}
+                  id={`category-${category}`}
                   className={`stagger-item delay-${
                     categoryIndex * 100
-                  } overflow-hidden`}
+                  } overflow-hidden scroll-mt-24`}
                 >
                   <div className="flex items-center gap-2 mb-4">
                     <div className="flex items-center px-3 py-1.5 bg-primary/10 text-primary rounded-lg">
