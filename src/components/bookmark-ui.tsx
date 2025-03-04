@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { BookmarkInstance, BookmarksData } from "@/lib/types";
+import {
+  defaultCategory,
+  type BookmarkInstance,
+  type BookmarksData,
+} from "@/lib/types";
 import { BookmarkCard } from "@/components/bookmark-card";
 import { Search, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -39,10 +43,10 @@ export function BookmarkUI({
         toast.status === "success"
           ? "success"
           : toast.status === "error"
-            ? "error"
-            : toast.status === "warning"
-              ? "warning"
-              : "info";
+          ? "error"
+          : toast.status === "warning"
+          ? "warning"
+          : "info";
       const message = decodeURIComponent(toast.message);
       showToast({
         title: t(toast.status),
@@ -66,7 +70,7 @@ export function BookmarkUI({
         refreshBookmarks();
       }
     },
-    [currentBookmarksData],
+    [currentBookmarksData]
   );
 
   const onUpdateBookmark = useCallback(
@@ -75,13 +79,13 @@ export function BookmarkUI({
         setCurrentBookmarksData({
           ...currentBookmarksData,
           bookmarks: currentBookmarksData.bookmarks.map((b) =>
-            b.uuid === bookmark.uuid ? bookmark : b,
+            b.uuid === bookmark.uuid ? bookmark : b
           ),
         });
         refreshBookmarks();
       }
     },
-    [currentBookmarksData],
+    [currentBookmarksData]
   );
 
   const onDeleteBookmark = useCallback(
@@ -90,13 +94,13 @@ export function BookmarkUI({
         setCurrentBookmarksData({
           ...currentBookmarksData,
           bookmarks: currentBookmarksData.bookmarks.filter(
-            (b) => b.uuid !== uuid,
+            (b) => b.uuid !== uuid
           ),
         });
         refreshBookmarks();
       }
     },
-    [currentBookmarksData],
+    [currentBookmarksData]
   );
 
   // 过滤掉空分类
@@ -148,11 +152,13 @@ export function BookmarkUI({
         </div>
 
         {/* 书签列表 */}
-        {bookmarksData && bookmarksData.bookmarks.length > 0 ? (
+        {bookmarksData &&
+        bookmarksData.bookmarks.length > 0 &&
+        validCategories.length > 0 ? (
           <div className="stagger-container space-y-8">
             {validCategories.map((category, categoryIndex) => {
               const categoryBookmarks = bookmarksData.bookmarks.filter(
-                (b) => b.category === category,
+                (b) => b.category === category
               );
 
               if (categoryBookmarks.length === 0) return null;
