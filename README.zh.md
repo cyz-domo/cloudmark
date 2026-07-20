@@ -36,11 +36,11 @@ Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创�
 
 ## 快速开始
 
-1. 访问 [cloudmark.site/doc](https://cloudmark.site/doc)
+1. 访问 [https://cloudmark.yxra3603.workers.dev/doc](https://cloudmark.yxra3603.workers.dev/doc)
 2. 生成 `mark` 与 write token
 3. 将 bookmarklet 拖到浏览器书签栏
 4. 浏览时点击 bookmarklet 保存页面
-5. 打开 `cloudmark.site/你的-mark` 管理书签
+5. 打开 `https://cloudmark.yxra3603.workers.dev/你的-mark` 管理书签
 
 ### 从旧版（KV）迁移
 

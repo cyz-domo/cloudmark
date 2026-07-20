@@ -36,11 +36,11 @@ Try it online: [https://cloudmark.yxra3603.workers.dev/](https://cloudmark.yxra3
 
 ## Quick Start
 
-1. Visit [cloudmark.site/doc](https://cloudmark.site/doc)
+1. Visit [https://cloudmark.yxra3603.workers.dev/doc](https://cloudmark.yxra3603.workers.dev/doc)
 2. Generate a `mark` and write token (or customize the mark)
 3. Drag the bookmarklet to your browser bookmarks bar
 4. Click the bookmarklet while browsing to save pages
-5. Open `cloudmark.site/your-mark` to manage bookmarks
+5. Open `https://cloudmark.yxra3603.workers.dev/your-mark` to manage bookmarks
 
 ### Migrating from the old (KV) version
 

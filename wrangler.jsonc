@@ -7,7 +7,9 @@
   "main": ".open-next/worker.js",
   "name": "cloudmark",
   "compatibility_date": "2025-02-14",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "preview_urls": true,
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",
@@ -17,8 +19,6 @@
   },
   /**
    * D1 — primary storage for collections and bookmarks
-   * Create with: pnpm exec wrangler d1 create cloudmark
-   * Then replace database_id and run: pnpm db:migrate:remote
    */
   "d1_databases": [
     {
@@ -38,11 +38,7 @@
       "id": "38a8d89cb0a44b0cb66f798009f16a93",
     },
   ],
-  "routes": [
-    {
-      "pattern": "cloudmark.site",
-      "custom_domain": true,
-    },
-  ],
-  "vars": { "NEXT_PUBLIC_BASE_URL": "https://cloudmark.site" },
+  "vars": {
+    "NEXT_PUBLIC_BASE_URL": "https://cloudmark.yxra3603.workers.dev",
+  },
 }

@@ -1,8 +1,5 @@
-import createNextIntlPlugin from "next-intl/plugin";
-import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 import type { NextConfig } from "next";
-
-initOpenNextCloudflareForDev();
+import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin();
 
@@ -18,3 +15,7 @@ const nextConfig: NextConfig = {
 };
 
 export default withBundleAnalyzer(withNextIntl(nextConfig));
+
+// Enable Cloudflare bindings during `next dev`
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+initOpenNextCloudflareForDev();
