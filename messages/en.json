@@ -132,7 +132,8 @@
       "markRequired": "Mark is required",
       "urlRequired": "URL is required",
       "tokenRequired": "Write token is required. Update your bookmarklet.",
-      "processingError": "Error processing bookmark"
+      "processingError": "Error processing bookmark",
+      "bookmarkExists": "Bookmark already saved"
     },
     "SecurityBanner": {
       "migratedTitle": "Collection migrated — save your write token",
@@ -237,5 +238,33 @@
     "urlRequired": "URL is required",
     "tokenRequired": "Write token is required",
     "processingError": "Error processing bookmark"
+  },
+  "Shortcuts": {
+    "title": "Keyboard shortcuts",
+    "description": "Navigate and manage bookmarks without leaving the keyboard.",
+    "focusSearch": "Focus search",
+    "next": "Select next bookmark",
+    "prev": "Select previous bookmark",
+    "open": "Open selected bookmark",
+    "add": "Add bookmark",
+    "edit": "Edit selected",
+    "delete": "Delete selected",
+    "filterCategory": "Filter by category (0 = all)",
+    "clear": "Clear search / filters",
+    "help": "Show this help",
+    "helpHint": "keyboard shortcuts",
+    "categories": "Categories",
+    "all": "All",
+    "searchPlaceholder": "Filter title, URL, notes…",
+    "sortNewest": "Newest",
+    "sortOldest": "Oldest",
+    "sortTitle": "Title",
+    "sortCategory": "Category",
+    "colTitle": "Title",
+    "colCategory": "Category",
+    "colDate": "Added",
+    "noResults": "No bookmarks match your filters",
+    "countAll": "{count} bookmarks",
+    "countFiltered": "{shown} / {total}"
   }
 }

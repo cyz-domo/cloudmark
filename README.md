@@ -16,10 +16,11 @@ Try it online: [https://cloudmark.yxra3603.workers.dev/](https://cloudmark.yxra3
 - 🔑 **No Registration**: Access your collection with a unique `mark`; writes require a write token
 - 🔖 **One-Click Save**: Bookmarklet embeds mark + write token
 - 🏷️ **Category Management**: Custom categories for organization
+- ⌨️ **Keyboard-first**: `/` search, `j/k` navigate, `n/e/d` CRUD, `?` help
+- 📋 **High density**: Compact list with instant filter / sort
 - 🌐 **Cross-Device Access**: Read anywhere; copy the write token to another device to write
 - 📝 **Detailed Descriptions**: Optional notes per bookmark
 - 🌍 **Multi-Language Support**: English and Chinese
-- ✨ **Modern Interface**: Responsive design
 - 🗄️ **Cloudflare D1**: Relational storage with automatic KV → D1 migration for legacy data
 
 ## Security Model
@@ -135,16 +136,17 @@ pnpm deploy
 
 ### Environment Variables
 
-- `NEXT_PUBLIC_BASE_URL` — site base URL (optional; defaults to current domain)
+- `BASE_URL` — public site URL in Worker vars (optional; client uses current origin)
 
 ## Technology Stack
 
-- [Next.js](https://nextjs.org/) — React framework
-- [Cloudflare Workers](https://workers.cloudflare.com/) — hosting (OpenNext)
+- [TypeScript 7](https://www.typescriptlang.org/) — language
+- [React](https://react.dev/) + [Vite](https://vite.dev/) — SPA frontend
+- [Hono](https://hono.dev/) — Worker API
+- [Cloudflare Workers](https://workers.cloudflare.com/) — hosting (`@cloudflare/vite-plugin`, no OpenNext)
 - [Cloudflare D1](https://developers.cloudflare.com/d1/) — primary data store
 - [Cloudflare KV](https://developers.cloudflare.com/kv/) — legacy migration source
-- [Tailwind CSS](https://tailwindcss.com/) — styling
-- [Next-Intl](https://next-intl-docs.vercel.app/) — internationalization
+- [Tailwind CSS](https://tailwindcss.com/) + shadcn/ui — styling
 
 ## License
 

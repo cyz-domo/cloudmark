@@ -16,10 +16,10 @@ Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创�
 - 🔑 **无需注册**：通过 `mark` 访问集合；写入需要 write token
 - 🔖 **一键收藏**：Bookmarklet 内嵌 mark + write token
 - 🏷️ **分类管理**：自定义分类整理书签
+- ⌨️ **键盘优先**：`/` 搜索、`j/k` 导航、`n/e/d` 增删改、`?` 帮助
+- 📋 **高信息密度**：紧凑列表 + 即时筛选 / 排序
 - 🌐 **跨设备访问**：任意设备可读；写入需在该设备配置 token
-- 📝 **详细描述**：可为书签添加备注
 - 🌍 **多语言**：中文 / 英文
-- ✨ **现代界面**：响应式设计
 - 🗄️ **Cloudflare D1**：关系型存储，支持从旧版 KV 自动迁移
 
 ## 安全模型
@@ -89,9 +89,10 @@ pnpm db:migrate:remote && pnpm deploy
 
 ## 技术栈
 
-- Next.js、Cloudflare Workers（OpenNext）
+- **TypeScript 7** · **React 19** · **Vite** · **Hono**
+- Cloudflare Workers（`@cloudflare/vite-plugin`，无 OpenNext / Next.js）
 - Cloudflare D1（主存储）/ KV（迁移源）
-- Tailwind CSS、Next-Intl
+- Tailwind CSS · shadcn/ui
 
 ## 许可证
 
