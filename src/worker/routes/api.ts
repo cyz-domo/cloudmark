@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   claimSchema,
   deleteSchema,
+  importBookmarksSchema,
   insertSchema,
   regenerateTokenSchema,
   updateSchema,
@@ -11,6 +12,7 @@ import {
   createBookmark,
   deleteBookmarkRecord,
   getCollectionPageData,
+  importBookmarks,
   regenerateToken,
   updateBookmarkRecord,
 } from "../services/bookmarks";
@@ -117,6 +119,21 @@ api.delete("/bookmarks/:uuid", async (c) => {
     return c.json({ ok: true });
   } catch (e) {
     return jsonError(c, e instanceof Error ? e.message : "Delete failed", 400);
+  }
+});
+
+/** POST /api/bookmarks/import — bulk import (HTML/JSON parsed client-side) */
+api.post("/bookmarks/import", async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = importBookmarksSchema.safeParse(body);
+    if (!parsed.success) {
+      return jsonError(c, parsed.error.errors[0]?.message ?? "Invalid input");
+    }
+    const result = await importBookmarks(c.env.DB, parsed.data);
+    return c.json(result);
+  } catch (e) {
+    return jsonError(c, e instanceof Error ? e.message : "Import failed", 400);
   }
 });
 

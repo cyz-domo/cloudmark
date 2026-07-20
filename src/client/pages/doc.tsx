@@ -4,6 +4,7 @@ import {
   Bookmark,
   Check,
   Copy,
+  Download,
   ExternalLink,
   HashIcon,
   KeyRound,
@@ -16,7 +17,11 @@ import { Input } from "@/components/ui/input";
 import { generateRandomMark, getBaseUrl } from "@/shared/utils";
 import { generateWriteToken } from "@/shared/security";
 import { buildBookmarkletCode } from "@/shared/bookmarklet";
-import { setStoredWriteToken } from "@/client/lib/token-store";
+import {
+  downloadTokenBackup,
+  setStoredWriteToken,
+  setTokenBackupAcknowledged,
+} from "@/client/lib/token-store";
 import { useTranslations } from "@/client/i18n/context";
 import { BookmarkletLink } from "@/client/components/bookmarklet-link";
 
@@ -158,18 +163,42 @@ export function DocPage() {
               variant="outline"
               size="sm"
               className="h-9 shrink-0"
+              title={t("setup.writeToken.copy")}
               onClick={() => {
+                if (
+                  writeToken &&
+                  !window.confirm(t("setup.writeToken.regenerateConfirm"))
+                ) {
+                  return;
+                }
                 const next = generateWriteToken();
                 setWriteToken(next);
                 setStoredWriteToken(mark, next);
+                setTokenBackupAcknowledged(mark, false);
               }}
             >
               <RefreshCcw className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0"
+              disabled={!writeToken}
+              onClick={() => {
+                if (!writeToken) return;
+                downloadTokenBackup(mark, writeToken);
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
             </Button>
           </div>
           <p className="flex items-start gap-1 text-xs text-muted-foreground">
             <Shield className="mt-0.5 h-3 w-3 shrink-0" />
             {t("setup.writeToken.description")}
+          </p>
+          <p className="text-2xs text-amber-700 dark:text-amber-400">
+            {t("setup.writeToken.backupHint")}
           </p>
         </div>
 

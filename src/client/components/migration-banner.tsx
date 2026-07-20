@@ -26,7 +26,9 @@ interface MigrationBannerProps {
   baseUrl: string;
   issuedWriteToken?: string;
   migratedFromKv?: boolean;
-  onTokenReady: (token: string) => void;
+  onTokenReady: (token: string | null) => void;
+  /** Open full token manager (backup / rotate) */
+  onOpenTokenManager?: () => void;
 }
 
 export function MigrationBanner({
@@ -35,6 +37,7 @@ export function MigrationBanner({
   issuedWriteToken,
   migratedFromKv,
   onTokenReady,
+  onOpenTokenManager,
 }: MigrationBannerProps) {
   const t = useTranslations("BookmarksPage.SecurityBanner");
   const [visible, setVisible] = useState(false);
@@ -88,6 +91,11 @@ export function MigrationBanner({
   };
 
   const generate = () => {
+    // Prefer the guided token manager (forces backup ack)
+    if (onOpenTokenManager) {
+      onOpenTokenManager();
+      return;
+    }
     const next = generateWriteToken();
     setStoredWriteToken(mark, next);
     setToken(next);

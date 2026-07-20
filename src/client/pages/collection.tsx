@@ -9,9 +9,11 @@ import { Link, useLocation, useParams, useSearchParams } from "react-router";
 import {
   Folder,
   HelpCircle,
+  KeyRound,
   Loader2,
   Plus,
   Search,
+  Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +50,8 @@ import {
   ShortcutHelp,
   type ShortcutItem,
 } from "@/client/components/shortcut-help";
+import { TokenManager } from "@/client/components/token-manager";
+import { ImportExportDialog } from "@/client/components/import-export";
 
 export function CollectionPage() {
   const params = useParams<{ mark: string }>();
@@ -71,6 +75,8 @@ export function CollectionPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [tokenOpen, setTokenOpen] = useState(false);
+  const [importExportOpen, setImportExportOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -85,7 +91,13 @@ export function CollectionPage() {
     [data],
   );
 
-  const dialogOpen = addOpen || editOpen || deleteOpen || helpOpen;
+  const dialogOpen =
+    addOpen ||
+    editOpen ||
+    deleteOpen ||
+    helpOpen ||
+    tokenOpen ||
+    importExportOpen;
   const selected = filtered[selectedIndex] ?? null;
   const canWrite = Boolean(writeToken) && !isDemoMark(mark);
 
@@ -211,9 +223,22 @@ export function CollectionPage() {
     searchRef.current?.blur();
   }, [setQuery, setCategory]);
 
-  const onTokenReady = useCallback((token: string) => {
+  const onTokenReady = useCallback((token: string | null) => {
     setWriteToken(token);
   }, []);
+
+  const onImported = useCallback((newOnes: BookmarkInstance[]) => {
+    if (newOnes.length === 0) return;
+    setData((prev) => {
+      if (!prev) return { mark, bookmarks: newOnes };
+      const urls = new Set(prev.bookmarks.map((b) => b.url));
+      const merged = [
+        ...prev.bookmarks,
+        ...newOnes.filter((b) => !urls.has(b.url)),
+      ];
+      return { ...prev, bookmarks: merged };
+    });
+  }, [mark]);
 
   const onBookmarkAdded = useCallback((bookmark: BookmarkInstance) => {
     setData((prev) => {
@@ -271,6 +296,8 @@ export function CollectionPage() {
             setEditOpen(false);
             setDeleteOpen(false);
             setHelpOpen(false);
+            setTokenOpen(false);
+            setImportExportOpen(false);
           },
         },
       ];
@@ -418,6 +445,7 @@ export function CollectionPage() {
           issuedWriteToken={issuedWriteToken}
           migratedFromKv={migratedFromKv}
           onTokenReady={onTokenReady}
+          onOpenTokenManager={() => setTokenOpen(true)}
         />
       )}
 
@@ -443,6 +471,28 @@ export function CollectionPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          {!isDemoMark(mark) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => setTokenOpen(true)}
+              title={t("tokenManager")}
+            >
+              <KeyRound className="mr-1 h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t("tokenManager")}</span>
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8"
+            onClick={() => setImportExportOpen(true)}
+            title={t("importExport")}
+          >
+            <Upload className="mr-1 h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{t("importExport")}</span>
+          </Button>
           <BookmarkletButton
             mark={mark}
             baseUrl={baseUrl}
@@ -651,6 +701,25 @@ export function CollectionPage() {
         open={helpOpen}
         onOpenChange={setHelpOpen}
         shortcuts={shortcutItems}
+      />
+      {!isDemoMark(mark) && (
+        <TokenManager
+          mark={mark}
+          baseUrl={baseUrl}
+          open={tokenOpen}
+          onOpenChange={setTokenOpen}
+          writeToken={writeToken}
+          issuedWriteToken={issuedWriteToken}
+          onTokenReady={onTokenReady}
+        />
+      )}
+      <ImportExportDialog
+        mark={mark}
+        writeToken={writeToken}
+        bookmarks={bookmarks}
+        open={importExportOpen}
+        onOpenChange={setImportExportOpen}
+        onImported={onImported}
       />
     </div>
   );
