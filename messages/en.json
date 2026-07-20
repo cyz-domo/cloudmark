@@ -175,7 +175,9 @@
       "visit": "Visit",
       "edit": "Edit",
       "delete": "Delete",
-      "deleteConfirm": "Are you sure you want to delete this bookmark?"
+      "deleteConfirm": "Are you sure you want to delete this bookmark?",
+      "select": "Select",
+      "deselect": "Deselect"
     },
     "BookmarkDialog": {
       "addTitle": "Add Bookmark",
@@ -219,11 +221,16 @@
         "tokenRequired": "Write token is required on this device",
         "addFailed": "Failed to add bookmark",
         "updateFailed": "Failed to update bookmark",
-        "deleteFailed": "Failed to delete bookmark"
+        "deleteFailed": "Failed to delete bookmark",
+        "deleteFailedMulti": "Failed to delete {count} bookmarks"
       },
       "addBookmark": "Add Bookmark",
       "delete": "Delete bookmark",
-      "edit": "Edit bookmark"
+      "edit": "Edit bookmark",
+      "deleteTitleMulti": "Delete bookmarks",
+      "deleteDescriptionMulti": "Delete {count} selected bookmarks?",
+      "deleteButtonMulti": "Delete {count}",
+      "deleteSuccessMulti": "Deleted {count} bookmarks"
     },
     "FloatingNav": {
       "title": "Categories",
@@ -269,7 +276,13 @@
     "colDate": "Added",
     "noResults": "No bookmarks match your filters",
     "countAll": "{count} bookmarks",
-    "countFiltered": "{shown} / {total}"
+    "countFiltered": "{shown} / {total}",
+    "extendSelect": "Extend multi-select",
+    "toggleSelect": "Toggle selection",
+    "selectAll": "Select all (filtered)",
+    "selectedCount": "{count} selected",
+    "clearSelection": "Clear selection",
+    "deleteSelected": "Delete"
   },
   "TokenManager": {
     "title": "Write token",

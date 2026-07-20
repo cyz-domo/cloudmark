@@ -175,7 +175,9 @@
       "visit": "访问",
       "edit": "编辑",
       "delete": "删除",
-      "deleteConfirm": "确定要删除这个书签吗？"
+      "deleteConfirm": "确定要删除这个书签吗？",
+      "select": "选中",
+      "deselect": "取消选中"
     },
     "BookmarkDialog": {
       "addTitle": "添加书签",
@@ -219,11 +221,16 @@
         "tokenRequired": "本设备需要 write token",
         "addFailed": "添加书签失败",
         "updateFailed": "更新书签失败",
-        "deleteFailed": "删除书签失败"
+        "deleteFailed": "删除书签失败",
+        "deleteFailedMulti": "{count} 个书签删除失败"
       },
       "addBookmark": "添加书签",
       "delete": "删除书签",
-      "edit": "编辑"
+      "edit": "编辑",
+      "deleteTitleMulti": "删除书签",
+      "deleteDescriptionMulti": "确定删除选中的 {count} 个书签？",
+      "deleteButtonMulti": "删除 {count} 项",
+      "deleteSuccessMulti": "已删除 {count} 个书签"
     },
     "FloatingNav": {
       "title": "分类导航",
@@ -269,7 +276,13 @@
     "colDate": "添加时间",
     "noResults": "没有匹配的书签",
     "countAll": "{count} 个书签",
-    "countFiltered": "{shown} / {total}"
+    "countFiltered": "{shown} / {total}",
+    "extendSelect": "扩展多选",
+    "toggleSelect": "切换选中",
+    "selectAll": "全选（当前列表）",
+    "selectedCount": "已选 {count} 项",
+    "clearSelection": "清除选择",
+    "deleteSelected": "删除"
   },
   "TokenManager": {
     "title": "写入令牌",

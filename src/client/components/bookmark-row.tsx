@@ -1,6 +1,6 @@
-import { memo } from "react";
+import { memo, type MouseEvent } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Check, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import type { BookmarkInstance } from "@/shared/types";
 import { cn, getDomain } from "@/shared/utils";
 import { Button } from "@/components/ui/button";
@@ -9,19 +9,29 @@ import { useTranslations } from "@/client/i18n/context";
 
 interface BookmarkRowProps {
   bookmark: BookmarkInstance;
+  /** Multi-select membership */
   selected: boolean;
+  /** Keyboard focus cursor */
+  focused: boolean;
   canWrite: boolean;
-  onSelect: () => void;
+  onSelect: (event: MouseEvent) => void;
+  onToggle: () => void;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
+/** Shared grid template — must match collection list header */
+export const BOOKMARK_ROW_GRID =
+  "grid-cols-[1rem_1.25rem_minmax(0,1fr)_auto] sm:grid-cols-[1rem_1.25rem_minmax(0,1fr)_7rem_5.5rem_5.25rem]";
+
 export const BookmarkRow = memo(function BookmarkRow({
   bookmark,
   selected,
+  focused,
   canWrite,
   onSelect,
+  onToggle,
   onOpen,
   onEdit,
   onDelete,
@@ -38,22 +48,47 @@ export const BookmarkRow = memo(function BookmarkRow({
       aria-selected={selected}
       tabIndex={-1}
       data-selected={selected}
+      data-focused={focused}
       data-uuid={bookmark.uuid}
       className={cn(
-        "bookmark-row group relative grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-b border-border/60 px-2 py-1.5 text-sm transition-all duration-150 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,8rem)_auto_auto] sm:gap-3 sm:px-3",
+        "bookmark-row group relative grid cursor-pointer items-center gap-x-2 border-b border-border/60 px-2 py-2 text-sm transition-all duration-150 sm:gap-x-3 sm:px-3",
+        BOOKMARK_ROW_GRID,
         "hover:bg-muted/60",
-        selected
-          ? "z-[1] bg-primary/8 shadow-[inset_3px_0_0_0_hsl(var(--primary))] ring-1 ring-inset ring-primary/25"
-          : "bg-transparent",
+        selected &&
+          "z-[1] bg-primary/8 shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
+        focused && "ring-1 ring-inset ring-primary/40",
+        selected && focused && "bg-primary/12 ring-primary/50",
       )}
       onClick={onSelect}
       onDoubleClick={onOpen}
     >
-      {/* Selection indicator */}
+      {/* Checkbox */}
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={selected}
+        aria-label={selected ? t("deselect") : t("select")}
+        className={cn(
+          "flex h-4 w-4 shrink-0 items-center justify-center justify-self-center rounded border transition-colors",
+          selected
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-muted-foreground/40 bg-background hover:border-primary/60",
+        )}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+      >
+        {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+      </button>
+
+      {/* Favicon */}
       <div
         className={cn(
-          "flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm transition-colors",
-          selected ? "bg-primary/15 ring-1 ring-primary/30" : "bg-muted",
+          "flex h-5 w-5 shrink-0 items-center justify-center justify-self-center overflow-hidden rounded-sm transition-colors",
+          selected || focused
+            ? "bg-primary/15 ring-1 ring-primary/30"
+            : "bg-muted",
         )}
         aria-hidden
       >
@@ -74,33 +109,34 @@ export const BookmarkRow = memo(function BookmarkRow({
           <ExternalLink
             className={cn(
               "h-3 w-3",
-              selected ? "text-primary" : "text-muted-foreground",
+              selected || focused ? "text-primary" : "text-muted-foreground",
             )}
           />
         )}
       </div>
 
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <span
-            className={cn(
-              "truncate leading-tight",
-              selected ? "font-semibold text-foreground" : "font-medium",
-            )}
-            title={bookmark.title}
-          >
-            {bookmark.title}
-          </span>
-          <span
-            className="hidden truncate text-2xs text-muted-foreground sm:inline"
-            title={bookmark.url}
-          >
-            {domain}
-          </span>
-        </div>
+      {/* Title / URL / description stack */}
+      <div className="min-w-0 flex flex-col gap-0.5 py-0.5">
+        <span
+          className={cn(
+            "truncate leading-snug",
+            selected || focused
+              ? "font-semibold text-foreground"
+              : "font-medium text-foreground",
+          )}
+          title={bookmark.title}
+        >
+          {bookmark.title}
+        </span>
+        <span
+          className="truncate text-2xs leading-snug text-muted-foreground"
+          title={bookmark.url}
+        >
+          {domain}
+        </span>
         {bookmark.description ? (
           <p
-            className="truncate text-2xs text-muted-foreground"
+            className="truncate text-2xs leading-snug text-muted-foreground/80"
             title={bookmark.description}
           >
             {bookmark.description}
@@ -108,29 +144,35 @@ export const BookmarkRow = memo(function BookmarkRow({
         ) : null}
       </div>
 
+      {/* Category */}
       <Badge
         variant="outline"
         className={cn(
-          "hidden max-w-[8rem] truncate px-1.5 py-0 text-2xs font-normal sm:inline-flex",
-          selected && "border-primary/30 bg-primary/5 text-foreground",
+          "hidden max-w-full justify-self-start truncate px-1.5 py-0 text-2xs font-normal sm:inline-flex",
+          (selected || focused) &&
+            "border-primary/30 bg-primary/5 text-foreground",
         )}
       >
         {bookmark.category}
       </Badge>
 
+      {/* Date */}
       <span
         className={cn(
-          "hidden whitespace-nowrap text-2xs tabular-nums md:inline",
-          selected ? "text-foreground/70" : "text-muted-foreground",
+          "hidden justify-self-end whitespace-nowrap text-2xs tabular-nums md:inline",
+          selected || focused
+            ? "text-foreground/70"
+            : "text-muted-foreground",
         )}
       >
         {date}
       </span>
 
+      {/* Actions */}
       <div
         className={cn(
-          "flex shrink-0 items-center gap-0.5 transition-opacity",
-          selected
+          "flex shrink-0 items-center justify-end gap-0.5 justify-self-end transition-opacity",
+          selected || focused
             ? "opacity-100"
             : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100",
         )}

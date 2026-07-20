@@ -13,6 +13,7 @@ import {
   Loader2,
   Plus,
   Search,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -39,7 +40,10 @@ import {
 } from "@/client/hooks/use-bookmark-filter";
 import { useHotkeys, type HotkeyBinding } from "@/client/hooks/use-hotkeys";
 import { useTranslations } from "@/client/i18n/context";
-import { BookmarkRow } from "@/client/components/bookmark-row";
+import {
+  BookmarkRow,
+  BOOKMARK_ROW_GRID,
+} from "@/client/components/bookmark-row";
 import { DialogAdd } from "@/client/components/dialog-add";
 import { DialogEdit } from "@/client/components/dialog-edit";
 import { DialogDelete } from "@/client/components/dialog-delete";
@@ -70,7 +74,12 @@ export function CollectionPage() {
   const [issuedWriteToken, setIssuedWriteToken] = useState<string | undefined>();
   const [migratedFromKv, setMigratedFromKv] = useState(false);
   const [writeToken, setWriteToken] = useState<string | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  /** Keyboard focus cursor index in filtered list */
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  /** Multi-select set of uuids */
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  /** Anchor for shift+click / shift+nav range select */
+  const [anchorIndex, setAnchorIndex] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -98,8 +107,10 @@ export function CollectionPage() {
     helpOpen ||
     tokenOpen ||
     importExportOpen;
-  const selected = filtered[selectedIndex] ?? null;
+  const focused = filtered[focusedIndex] ?? null;
   const canWrite = Boolean(writeToken) && !isDemoMark(mark);
+
+  const multiCount = selectedIds.size;
 
   // Load collection
   useEffect(() => {
@@ -184,38 +195,104 @@ export function CollectionPage() {
     setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams, t, mark]);
 
-  // Clamp selection when filter changes
+  // Clamp focus when filter changes; drop selection entries not in filtered
   useEffect(() => {
-    setSelectedIndex((i) => {
+    setFocusedIndex((i) => {
       if (filtered.length === 0) return 0;
       return Math.min(i, filtered.length - 1);
     });
-  }, [filtered.length]);
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(filtered.map((b) => b.uuid));
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filtered]);
 
-  // Scroll selected into view
+  // Scroll focused row into view
   useEffect(() => {
     const el = listRef.current?.querySelector(
-      `[data-uuid="${selected?.uuid}"]`,
+      `[data-uuid="${focused?.uuid}"]`,
     );
     el?.scrollIntoView({ block: "nearest" });
-  }, [selected?.uuid]);
+  }, [focused?.uuid]);
 
-  const openSelected = useCallback(() => {
-    if (selected) window.open(selected.url, "_blank", "noopener,noreferrer");
-  }, [selected]);
+  const openFocused = useCallback(() => {
+    if (focused) window.open(focused.url, "_blank", "noopener,noreferrer");
+  }, [focused]);
 
-  const moveSelection = useCallback(
-    (delta: number) => {
+  const selectOnly = useCallback((index: number) => {
+    const b = filtered[index];
+    if (!b) return;
+    setFocusedIndex(index);
+    setAnchorIndex(index);
+    setSelectedIds(new Set([b.uuid]));
+  }, [filtered]);
+
+  const toggleId = useCallback((uuid: string, index: number) => {
+    setFocusedIndex(index);
+    setAnchorIndex(index);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(uuid)) next.delete(uuid);
+      else next.add(uuid);
+      return next;
+    });
+  }, []);
+
+  const selectRange = useCallback(
+    (toIndex: number) => {
       if (filtered.length === 0) return;
-      setSelectedIndex((i) => {
-        const next = i + delta;
-        if (next < 0) return filtered.length - 1;
-        if (next >= filtered.length) return 0;
+      const from = anchorIndex;
+      const start = Math.min(from, toIndex);
+      const end = Math.max(from, toIndex);
+      setFocusedIndex(toIndex);
+      setSelectedIds(() => {
+        const next = new Set<string>();
+        for (let i = start; i <= end; i++) {
+          const b = filtered[i];
+          if (b) next.add(b.uuid);
+        }
         return next;
       });
     },
-    [filtered.length],
+    [anchorIndex, filtered],
   );
+
+  const moveFocus = useCallback(
+    (delta: number, opts?: { extend?: boolean }) => {
+      if (filtered.length === 0) return;
+      setFocusedIndex((i) => {
+        let next = i + delta;
+        if (next < 0) next = filtered.length - 1;
+        if (next >= filtered.length) next = 0;
+        if (opts?.extend) {
+          // range from anchor to next
+          const from = anchorIndex;
+          const start = Math.min(from, next);
+          const end = Math.max(from, next);
+          setSelectedIds(() => {
+            const s = new Set<string>();
+            for (let j = start; j <= end; j++) {
+              const b = filtered[j];
+              if (b) s.add(b.uuid);
+            }
+            return s;
+          });
+        }
+        return next;
+      });
+    },
+    [filtered, anchorIndex],
+  );
+
+  const selectAllFiltered = useCallback(() => {
+    setSelectedIds(new Set(filtered.map((b) => b.uuid)));
+  }, [filtered]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
 
   const clearFilters = useCallback(() => {
     setQuery("");
@@ -259,21 +336,49 @@ export function CollectionPage() {
     });
   }, []);
 
-  const onBookmarkDeleted = useCallback((uuid: string) => {
+  const onBookmarksDeleted = useCallback((uuids: string[]) => {
+    const gone = new Set(uuids);
     setData((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
-        bookmarks: prev.bookmarks.filter((b) => b.uuid !== uuid),
+        bookmarks: prev.bookmarks.filter((b) => !gone.has(b.uuid)),
       };
     });
+    setSelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => !gone.has(id)));
+      return next;
+    });
   }, []);
+
+  const openDeleteFor = useCallback(
+    (targets: BookmarkInstance[]) => {
+      if (targets.length === 0) return;
+      if (!canWrite) {
+        toast.error(t("notifications.tokenRequired"));
+        return;
+      }
+      // Ensure focused/selected state covers targets for the dialog
+      if (targets.length === 1) {
+        const idx = filtered.findIndex((b) => b.uuid === targets[0]!.uuid);
+        if (idx >= 0) {
+          setFocusedIndex(idx);
+          setSelectedIds(new Set([targets[0]!.uuid]));
+        }
+      }
+      setDeleteOpen(true);
+    },
+    [canWrite, filtered, t],
+  );
 
   const shortcutItems: ShortcutItem[] = useMemo(
     () => [
       { keys: ["/", "⌘K"], label: ts("focusSearch") },
       { keys: ["j", "↓"], label: ts("next") },
       { keys: ["k", "↑"], label: ts("prev") },
+      { keys: ["Shift+j/k"], label: ts("extendSelect") },
+      { keys: ["x", "Space"], label: ts("toggleSelect") },
+      { keys: ["a"], label: ts("selectAll") },
       { keys: ["Enter", "o"], label: ts("open") },
       { keys: ["n"], label: ts("add") },
       { keys: ["e"], label: ts("edit") },
@@ -286,6 +391,9 @@ export function CollectionPage() {
   );
 
   const hotkeys: HotkeyBinding[] = useMemo(() => {
+    // Delete dialog owns d / Enter / Escape via its own hook
+    if (deleteOpen) return [];
+
     if (dialogOpen) {
       return [
         {
@@ -294,7 +402,6 @@ export function CollectionPage() {
           handler: () => {
             setAddOpen(false);
             setEditOpen(false);
-            setDeleteOpen(false);
             setHelpOpen(false);
             setTokenOpen(false);
             setImportExportOpen(false);
@@ -316,27 +423,70 @@ export function CollectionPage() {
       },
       {
         key: "j",
-        handler: () => moveSelection(1),
+        handler: () => moveFocus(1),
       },
       {
         key: "ArrowDown",
-        handler: () => moveSelection(1),
+        handler: () => moveFocus(1),
+      },
+      {
+        key: "j",
+        shift: true,
+        handler: () => moveFocus(1, { extend: true }),
+      },
+      {
+        key: "ArrowDown",
+        shift: true,
+        handler: () => moveFocus(1, { extend: true }),
       },
       {
         key: "k",
-        handler: () => moveSelection(-1),
+        handler: () => moveFocus(-1),
       },
       {
         key: "ArrowUp",
-        handler: () => moveSelection(-1),
+        handler: () => moveFocus(-1),
+      },
+      {
+        key: "k",
+        shift: true,
+        handler: () => moveFocus(-1, { extend: true }),
+      },
+      {
+        key: "ArrowUp",
+        shift: true,
+        handler: () => moveFocus(-1, { extend: true }),
+      },
+      {
+        key: " ",
+        handler: () => {
+          if (!focused) return;
+          toggleId(focused.uuid, focusedIndex);
+        },
+      },
+      {
+        key: "x",
+        handler: () => {
+          if (!focused) return;
+          toggleId(focused.uuid, focusedIndex);
+        },
+      },
+      {
+        key: "a",
+        handler: () => selectAllFiltered(),
+      },
+      {
+        key: "a",
+        meta: true,
+        handler: () => selectAllFiltered(),
       },
       {
         key: "Enter",
-        handler: () => openSelected(),
+        handler: () => openFocused(),
       },
       {
         key: "o",
-        handler: () => openSelected(),
+        handler: () => openFocused(),
       },
       {
         key: "n",
@@ -348,7 +498,7 @@ export function CollectionPage() {
       {
         key: "e",
         handler: () => {
-          if (!selected) return;
+          if (!focused) return;
           if (!canWrite) {
             toast.error(t("notifications.tokenRequired"));
             return;
@@ -359,12 +509,13 @@ export function CollectionPage() {
       {
         key: "d",
         handler: () => {
-          if (!selected) return;
-          if (!canWrite) {
-            toast.error(t("notifications.tokenRequired"));
-            return;
-          }
-          setDeleteOpen(true);
+          const targets =
+            selectedIds.size > 0
+              ? filtered.filter((b) => selectedIds.has(b.uuid))
+              : focused
+                ? [focused]
+                : [];
+          openDeleteFor(targets);
         },
       },
       {
@@ -377,6 +528,10 @@ export function CollectionPage() {
           }
           if (document.activeElement === searchRef.current) {
             searchRef.current?.blur();
+            return;
+          }
+          if (selectedIds.size > 0) {
+            clearSelection();
             return;
           }
           clearFilters();
@@ -411,15 +566,23 @@ export function CollectionPage() {
 
     return bindings;
   }, [
+    deleteOpen,
     dialogOpen,
-    moveSelection,
-    openSelected,
+    moveFocus,
+    openFocused,
     canWrite,
-    selected,
+    focused,
+    focusedIndex,
+    toggleId,
+    selectAllFiltered,
+    selectedIds,
+    filtered,
+    openDeleteFor,
     t,
     query,
     setQuery,
     clearFilters,
+    clearSelection,
     setCategory,
     filter.categories,
   ]);
@@ -613,18 +776,67 @@ export function CollectionPage() {
             </Button>
           </div>
 
-          {/* Column headers (desktop) */}
-          <div className="hidden grid-cols-[auto_minmax(0,1fr)_minmax(0,8rem)_auto_auto] gap-3 border-b border-border/60 bg-muted/20 px-3 py-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground sm:grid">
-            <span className="w-5" />
+          {/* Bulk selection bar */}
+          {multiCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-primary/20 bg-primary/5 px-2 py-1.5 text-xs">
+              <span className="font-medium">
+                {ts("selectedCount", { count: multiCount })}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2"
+                onClick={selectAllFiltered}
+              >
+                {ts("selectAll")}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2"
+                onClick={clearSelection}
+              >
+                {ts("clearSelection")}
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="ml-auto h-7"
+                disabled={!canWrite}
+                onClick={() =>
+                  openDeleteFor(
+                    filtered.filter((b) => selectedIds.has(b.uuid)),
+                  )
+                }
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                {ts("deleteSelected")}
+                <kbd className="ml-1.5 border-destructive-foreground/30 bg-destructive-foreground/10">
+                  d
+                </kbd>
+              </Button>
+            </div>
+          )}
+
+          {/* Column headers — same grid as BookmarkRow */}
+          <div
+            className={cn(
+              "hidden items-center gap-x-3 border-b border-border/60 bg-muted/20 px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground sm:grid",
+              BOOKMARK_ROW_GRID,
+            )}
+          >
+            <span className="justify-self-center" aria-hidden />
+            <span className="justify-self-center" aria-hidden />
             <span>{ts("colTitle")}</span>
-            <span>{ts("colCategory")}</span>
-            <span>{ts("colDate")}</span>
-            <span className="w-[5.25rem]" />
+            <span className="justify-self-start">{ts("colCategory")}</span>
+            <span className="justify-self-end">{ts("colDate")}</span>
+            <span className="justify-self-end w-[5.25rem]" aria-hidden />
           </div>
 
           <div
             ref={listRef}
             role="listbox"
+            aria-multiselectable
             aria-label={t("title")}
             className="min-h-0 flex-1 overflow-y-auto"
           >
@@ -651,19 +863,30 @@ export function CollectionPage() {
                 <BookmarkRow
                   key={bookmark.uuid}
                   bookmark={bookmark}
-                  selected={index === selectedIndex}
+                  selected={selectedIds.has(bookmark.uuid)}
+                  focused={index === focusedIndex}
                   canWrite={canWrite}
-                  onSelect={() => setSelectedIndex(index)}
+                  onSelect={(e) => {
+                    if (e.shiftKey) {
+                      selectRange(index);
+                      return;
+                    }
+                    if (e.metaKey || e.ctrlKey) {
+                      toggleId(bookmark.uuid, index);
+                      return;
+                    }
+                    selectOnly(index);
+                  }}
+                  onToggle={() => toggleId(bookmark.uuid, index)}
                   onOpen={() =>
                     window.open(bookmark.url, "_blank", "noopener,noreferrer")
                   }
                   onEdit={() => {
-                    setSelectedIndex(index);
+                    selectOnly(index);
                     setEditOpen(true);
                   }}
                   onDelete={() => {
-                    setSelectedIndex(index);
-                    setDeleteOpen(true);
+                    openDeleteFor([bookmark]);
                   }}
                 />
               ))
@@ -682,7 +905,7 @@ export function CollectionPage() {
       />
       <DialogEdit
         mark={mark}
-        bookmark={selected}
+        bookmark={focused}
         categories={categories}
         writeToken={writeToken}
         open={editOpen}
@@ -691,11 +914,17 @@ export function CollectionPage() {
       />
       <DialogDelete
         mark={mark}
-        bookmark={selected}
+        bookmarks={
+          selectedIds.size > 0
+            ? filtered.filter((b) => selectedIds.has(b.uuid))
+            : focused
+              ? [focused]
+              : []
+        }
         writeToken={writeToken}
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        onBookmarkDeleted={onBookmarkDeleted}
+        onBookmarksDeleted={onBookmarksDeleted}
       />
       <ShortcutHelp
         open={helpOpen}
