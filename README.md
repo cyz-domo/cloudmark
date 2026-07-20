@@ -1,7 +1,7 @@
 # Cloudmark
 
 [![AGPL LICENSE](https://img.shields.io/badge/LICENSE-AGPL-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
-[![Try It Online](https://img.shields.io/badge/TryIt-Online-orange.svg)](https://cloudmark.yxra3603.workers.dev/)
+[![Try It Online](https://img.shields.io/badge/TryIt-Online-orange.svg)](https://cloudmark.site/)
 
 [中文文档](README.zh.md)
 
@@ -9,7 +9,7 @@
 
 Cloudmark is a universal cloud bookmark management tool that allows you to easily save and access your bookmarks from anywhere. No login or registration required — create a collection ID (`mark`) plus a secret **write token**, install the bookmarklet, and start saving pages.
 
-Try it online: [https://cloudmark.yxra3603.workers.dev/](https://cloudmark.yxra3603.workers.dev/)
+Try it online: [https://cloudmark.site/](https://cloudmark.site/)
 
 ## Key Features
 
@@ -37,11 +37,11 @@ Try it online: [https://cloudmark.yxra3603.workers.dev/](https://cloudmark.yxra3
 
 ## Quick Start
 
-1. Visit [https://cloudmark.yxra3603.workers.dev/doc](https://cloudmark.yxra3603.workers.dev/doc)
+1. Visit [https://cloudmark.site/doc](https://cloudmark.site/doc)
 2. Generate a `mark` and write token (or customize the mark)
 3. Drag the bookmarklet to your browser bookmarks bar
 4. Click the bookmarklet while browsing to save pages
-5. Open `https://cloudmark.yxra3603.workers.dev/your-mark` to manage bookmarks
+5. Open `https://cloudmark.site/your-mark` to manage bookmarks
 
 ### Migrating from the old (KV) version
 

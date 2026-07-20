@@ -1,7 +1,7 @@
 # Cloudmark
 
 [![AGPL LICENSE](https://img.shields.io/badge/LICENSE-AGPL-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
-[![在线试用](https://img.shields.io/badge/TryIt-Online-orange.svg)](https://cloudmark.yxra3603.workers.dev/)
+[![在线试用](https://img.shields.io/badge/TryIt-Online-orange.svg)](https://cloudmark.site/)
 
 [English](README.md)
 
@@ -9,7 +9,7 @@
 
 Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创建集合 ID（`mark`）和密钥 **write token**，安装 bookmarklet 即可一键收藏网页。
 
-在线试用：[https://cloudmark.yxra3603.workers.dev/](https://cloudmark.yxra3603.workers.dev/)
+在线试用：[https://cloudmark.site/](https://cloudmark.site/)
 
 ## 主要功能
 
@@ -36,11 +36,11 @@ Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创�
 
 ## 快速开始
 
-1. 访问 [https://cloudmark.yxra3603.workers.dev/doc](https://cloudmark.yxra3603.workers.dev/doc)
+1. 访问 [https://cloudmark.site/doc](https://cloudmark.site/doc)
 2. 生成 `mark` 与 write token
 3. 将 bookmarklet 拖到浏览器书签栏
 4. 浏览时点击 bookmarklet 保存页面
-5. 打开 `https://cloudmark.yxra3603.workers.dev/你的-mark` 管理书签
+5. 打开 `https://cloudmark.site/你的-mark` 管理书签
 
 ### 从旧版（KV）迁移
 
