@@ -312,7 +312,13 @@
     "clearSelection": "Clear selection",
     "deleteSelected": "Delete",
     "editSelected": "Edit",
-    "bulkEdit": "Bulk edit (when multi-selected)"
+    "bulkEdit": "Bulk edit (when multi-selected)",
+    "sortTitleAsc": "Title A–Z",
+    "sortTitleDesc": "Title Z–A",
+    "sortCategoryAsc": "Category A–Z",
+    "sortCategoryDesc": "Category Z–A",
+    "sortUrlAsc": "URL A–Z",
+    "sortUrlDesc": "URL Z–A"
   },
   "TokenManager": {
     "title": "Write token",

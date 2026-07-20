@@ -1,8 +1,13 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { BookmarkInstance } from "@/shared/types";
 import { getDomain } from "@/shared/utils";
 
-export type SortKey = "newest" | "oldest" | "title" | "category";
+/** Sortable columns in the bookmark table */
+export type SortColumn = "title" | "category" | "date" | "url";
+export type SortDir = "asc" | "desc";
+
+/** @deprecated Prefer SortColumn + SortDir — kept for toolbar Select values */
+export type SortKey = "newest" | "oldest" | "title" | "category" | "title-desc" | "category-desc" | "url" | "url-desc";
 
 export const ALL_CATEGORIES = "__all__";
 
@@ -27,44 +32,103 @@ export function matchesQuery(bookmark: BookmarkInstance, query: string): boolean
   return tokens.every((t) => hay.includes(t));
 }
 
+function compareTitle(a: BookmarkInstance, b: BookmarkInstance): number {
+  return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+}
+
+function compareCategory(a: BookmarkInstance, b: BookmarkInstance): number {
+  const c = a.category.localeCompare(b.category, undefined, {
+    sensitivity: "base",
+  });
+  return c !== 0 ? c : compareTitle(a, b);
+}
+
+function compareDate(a: BookmarkInstance, b: BookmarkInstance): number {
+  return (
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+}
+
+function compareUrl(a: BookmarkInstance, b: BookmarkInstance): number {
+  const da = getDomain(a.url);
+  const db = getDomain(b.url);
+  const c = da.localeCompare(db, undefined, { sensitivity: "base" });
+  return c !== 0 ? c : compareTitle(a, b);
+}
+
 function sortBookmarks(
   list: BookmarkInstance[],
-  sort: SortKey,
+  column: SortColumn,
+  dir: SortDir,
 ): BookmarkInstance[] {
   const copy = [...list];
-  switch (sort) {
+  const mul = dir === "asc" ? 1 : -1;
+  copy.sort((a, b) => {
+    let cmp = 0;
+    switch (column) {
+      case "title":
+        cmp = compareTitle(a, b);
+        break;
+      case "category":
+        cmp = compareCategory(a, b);
+        break;
+      case "date":
+        cmp = compareDate(a, b);
+        break;
+      case "url":
+        cmp = compareUrl(a, b);
+        break;
+    }
+    return cmp * mul;
+  });
+  return copy;
+}
+
+/** Map legacy select value → column + dir */
+export function sortKeyToState(key: SortKey): {
+  column: SortColumn;
+  dir: SortDir;
+} {
+  switch (key) {
     case "newest":
-      return copy.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
+      return { column: "date", dir: "desc" };
     case "oldest":
-      return copy.sort(
-        (a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      );
+      return { column: "date", dir: "asc" };
     case "title":
-      return copy.sort((a, b) =>
-        a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
-      );
+      return { column: "title", dir: "asc" };
+    case "title-desc":
+      return { column: "title", dir: "desc" };
     case "category":
-      return copy.sort((a, b) => {
-        const c = a.category.localeCompare(b.category, undefined, {
-          sensitivity: "base",
-        });
-        return c !== 0
-          ? c
-          : a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
-      });
+      return { column: "category", dir: "asc" };
+    case "category-desc":
+      return { column: "category", dir: "desc" };
+    case "url":
+      return { column: "url", dir: "asc" };
+    case "url-desc":
+      return { column: "url", dir: "desc" };
     default:
-      return copy;
+      return { column: "date", dir: "desc" };
   }
+}
+
+export function stateToSortKey(column: SortColumn, dir: SortDir): SortKey {
+  if (column === "date") return dir === "desc" ? "newest" : "oldest";
+  if (column === "title") return dir === "asc" ? "title" : "title-desc";
+  if (column === "category")
+    return dir === "asc" ? "category" : "category-desc";
+  return dir === "asc" ? "url" : "url-desc";
+}
+
+/** Default direction when first clicking a column */
+export function defaultDirForColumn(column: SortColumn): SortDir {
+  return column === "date" ? "desc" : "asc";
 }
 
 export function useBookmarkFilter(bookmarks: BookmarkInstance[]) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>(ALL_CATEGORIES);
-  const [sort, setSort] = useState<SortKey>("newest");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const categoryCounts = useMemo(() => {
     const map = new Map<string, number>();
@@ -86,8 +150,28 @@ export function useBookmarkFilter(bookmarks: BookmarkInstance[]) {
     if (query.trim()) {
       list = list.filter((b) => matchesQuery(b, query));
     }
-    return sortBookmarks(list, sort);
-  }, [bookmarks, category, query, sort]);
+    return sortBookmarks(list, sortColumn, sortDir);
+  }, [bookmarks, category, query, sortColumn, sortDir]);
+
+  const sort = stateToSortKey(sortColumn, sortDir);
+
+  const setSort = useCallback((key: SortKey) => {
+    const next = sortKeyToState(key);
+    setSortColumn(next.column);
+    setSortDir(next.dir);
+  }, []);
+
+  /** Click a column header: same column toggles dir; new column uses default dir */
+  const toggleSortColumn = useCallback((column: SortColumn) => {
+    setSortColumn((prevCol) => {
+      if (prevCol === column) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return prevCol;
+      }
+      setSortDir(defaultDirForColumn(column));
+      return column;
+    });
+  }, []);
 
   return {
     query,
@@ -96,6 +180,11 @@ export function useBookmarkFilter(bookmarks: BookmarkInstance[]) {
     setCategory,
     sort,
     setSort,
+    sortColumn,
+    sortDir,
+    setSortColumn,
+    setSortDir,
+    toggleSortColumn,
     categories,
     categoryCounts,
     filtered,

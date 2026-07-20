@@ -7,6 +7,9 @@ import {
 } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Folder,
   HelpCircle,
   KeyRound,
@@ -37,6 +40,7 @@ import { getStoredWriteToken } from "@/client/lib/token-store";
 import {
   ALL_CATEGORIES,
   useBookmarkFilter,
+  type SortColumn,
   type SortKey,
 } from "@/client/hooks/use-bookmark-filter";
 import { useHotkeys, type HotkeyBinding } from "@/client/hooks/use-hotkeys";
@@ -95,8 +99,18 @@ export function CollectionPage() {
   const baseUrl = getBaseUrl();
   const bookmarks = data?.bookmarks ?? [];
   const filter = useBookmarkFilter(bookmarks);
-  const { filtered, query, setQuery, category, setCategory, sort, setSort } =
-    filter;
+  const {
+    filtered,
+    query,
+    setQuery,
+    category,
+    setCategory,
+    sort,
+    setSort,
+    sortColumn,
+    sortDir,
+    toggleSortColumn,
+  } = filter;
 
   const categories = useMemo(
     () => (data ? getCategories(data) : ["default"]),
@@ -767,14 +781,22 @@ export function CollectionPage() {
             </Select>
 
             <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-              <SelectTrigger className="h-8 w-[7.5rem] text-xs">
+              <SelectTrigger className="h-8 w-[8.5rem] text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="newest">{ts("sortNewest")}</SelectItem>
                 <SelectItem value="oldest">{ts("sortOldest")}</SelectItem>
-                <SelectItem value="title">{ts("sortTitle")}</SelectItem>
-                <SelectItem value="category">{ts("sortCategory")}</SelectItem>
+                <SelectItem value="title">{ts("sortTitleAsc")}</SelectItem>
+                <SelectItem value="title-desc">{ts("sortTitleDesc")}</SelectItem>
+                <SelectItem value="category">
+                  {ts("sortCategoryAsc")}
+                </SelectItem>
+                <SelectItem value="category-desc">
+                  {ts("sortCategoryDesc")}
+                </SelectItem>
+                <SelectItem value="url">{ts("sortUrlAsc")}</SelectItem>
+                <SelectItem value="url-desc">{ts("sortUrlDesc")}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -854,18 +876,39 @@ export function CollectionPage() {
             </div>
           )}
 
-          {/* Column headers — same grid as BookmarkRow */}
+          {/* Column headers — click to sort; same grid as BookmarkRow */}
           <div
             className={cn(
-              "hidden items-center gap-x-3 border-b border-border/60 bg-muted/20 px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground sm:grid",
+              "hidden items-center gap-x-3 border-b border-border/60 bg-muted/20 px-3 py-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground sm:grid",
               BOOKMARK_ROW_GRID,
             )}
           >
             <span className="justify-self-center" aria-hidden />
             <span className="justify-self-center" aria-hidden />
-            <span>{ts("colTitle")}</span>
-            <span className="justify-self-start">{ts("colCategory")}</span>
-            <span className="justify-self-end">{ts("colDate")}</span>
+            <SortHeader
+              label={ts("colTitle")}
+              column="title"
+              activeColumn={sortColumn}
+              dir={sortDir}
+              onToggle={toggleSortColumn}
+              className="justify-self-start"
+            />
+            <SortHeader
+              label={ts("colCategory")}
+              column="category"
+              activeColumn={sortColumn}
+              dir={sortDir}
+              onToggle={toggleSortColumn}
+              className="justify-self-start"
+            />
+            <SortHeader
+              label={ts("colDate")}
+              column="date"
+              activeColumn={sortColumn}
+              dir={sortDir}
+              onToggle={toggleSortColumn}
+              className="justify-self-end"
+            />
             <span className="justify-self-end w-[5.25rem]" aria-hidden />
           </div>
 
@@ -1028,6 +1071,50 @@ function CategoryButton({
       {shortcut ? (
         <kbd className="ml-0.5 opacity-60">{shortcut}</kbd>
       ) : null}
+    </button>
+  );
+}
+
+function SortHeader({
+  label,
+  column,
+  activeColumn,
+  dir,
+  onToggle,
+  className,
+}: {
+  label: string;
+  column: SortColumn;
+  activeColumn: SortColumn;
+  dir: "asc" | "desc";
+  onToggle: (column: SortColumn) => void;
+  className?: string;
+}) {
+  const active = activeColumn === column;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(column)}
+      className={cn(
+        "inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-muted hover:text-foreground",
+        active && "text-foreground",
+        className,
+      )}
+      aria-sort={
+        active ? (dir === "asc" ? "ascending" : "descending") : "none"
+      }
+      title={label}
+    >
+      <span>{label}</span>
+      {active ? (
+        dir === "asc" ? (
+          <ArrowUp className="h-3 w-3 shrink-0 text-primary" />
+        ) : (
+          <ArrowDown className="h-3 w-3 shrink-0 text-primary" />
+        )
+      ) : (
+        <ArrowUpDown className="h-3 w-3 shrink-0 opacity-40" />
+      )}
     </button>
   );
 }

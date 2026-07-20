@@ -312,7 +312,13 @@
     "clearSelection": "清除选择",
     "deleteSelected": "删除",
     "editSelected": "编辑",
-    "bulkEdit": "批量编辑（多选时）"
+    "bulkEdit": "批量编辑（多选时）",
+    "sortTitleAsc": "标题 A–Z",
+    "sortTitleDesc": "标题 Z–A",
+    "sortCategoryAsc": "分类 A–Z",
+    "sortCategoryDesc": "分类 Z–A",
+    "sortUrlAsc": "网址 A–Z",
+    "sortUrlDesc": "网址 Z–A"
   },
   "TokenManager": {
     "title": "写入令牌",
