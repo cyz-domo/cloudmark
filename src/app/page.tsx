@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useMessages, useTranslations } from "next-intl";
-import Image from "next/image";
 import "./page.css"; // 引入CSS文件
 
 export default function Page() {
   const t = useTranslations("HomePage");
   const messages = useMessages();
-  // @ts-expect-error
+  // @ts-expect-error next-intl message shape is not fully typed for nested feature keys
   const keys = Object.keys(messages.HomePage.features);
 
   return (

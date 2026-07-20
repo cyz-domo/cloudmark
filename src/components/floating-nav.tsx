@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { ChevronRight, FolderOpen, ChevronLeft, Folder } from "lucide-react";
+import { ChevronRight, ChevronLeft, Folder } from "lucide-react";
 import { useTranslations } from "next-intl";
+import type { BookmarksData } from "@/lib/types";
 
 interface FloatingNavProps {
   categories: string[];
-  bookmarksData: any;
+  bookmarksData: BookmarksData | null;
 }
 
 export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
@@ -20,13 +21,10 @@ export function FloatingNav({ categories, bookmarksData }: FloatingNavProps) {
 
   // 过滤空分类和没有书签的分类
   const validCategories = categories.filter((cat) => {
-    // 过滤空分类名
     if (cat.trim() === "") return false;
-
-    // 过滤没有书签的分类
     if (!bookmarksData || !bookmarksData.bookmarks) return false;
     const categoryBookmarks = bookmarksData.bookmarks.filter(
-      (b: any) => b.category === cat,
+      (b) => b.category === cat,
     );
     return categoryBookmarks.length > 0;
   });

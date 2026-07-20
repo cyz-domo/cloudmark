@@ -7,33 +7,54 @@
 
 ## Introduction
 
-Cloudmark is a universal cloud bookmark management tool that allows you to easily save and access your bookmarks from anywhere. No login or registration required - simply create your personalized bookmark collection and start using it right away.
+Cloudmark is a universal cloud bookmark management tool that allows you to easily save and access your bookmarks from anywhere. No login or registration required — create a collection ID (`mark`) plus a secret **write token**, install the bookmarklet, and start saving pages.
 
 Try it online: [https://cloudmark.yxra3603.workers.dev/](https://cloudmark.yxra3603.workers.dev/)
 
 ## Key Features
 
-- 🔑 **No Registration**: Access your bookmark collection using a unique identifier
-- 🔖 **One-Click Save**: Quickly save the current webpage using a bookmarklet
-- 🏷️ **Category Management**: Add custom categories to your bookmarks for easy organization
-- 🌐 **Cross-Device Access**: Access your bookmarks on any device
-- 📝 **Detailed Descriptions**: Add personalized descriptions to your bookmarks
-- 🌍 **Multi-Language Support**: English and Chinese interfaces available
-- ✨ **Modern Interface**: Responsive design for all devices
+- 🔑 **No Registration**: Access your collection with a unique `mark`; writes require a write token
+- 🔖 **One-Click Save**: Bookmarklet embeds mark + write token
+- 🏷️ **Category Management**: Custom categories for organization
+- 🌐 **Cross-Device Access**: Read anywhere; copy the write token to another device to write
+- 📝 **Detailed Descriptions**: Optional notes per bookmark
+- 🌍 **Multi-Language Support**: English and Chinese
+- ✨ **Modern Interface**: Responsive design
+- 🗄️ **Cloudflare D1**: Relational storage with automatic KV → D1 migration for legacy data
+
+## Security Model
+
+| Capability | Requirement |
+|------------|-------------|
+| View collection | Know the `mark` (URL) |
+| Add / edit / delete | Valid **write token** for that mark |
+| Bookmarklet save | `mark` + `token` query params |
+
+- Write tokens are hashed (SHA-256) in D1; plaintext is only stored in the browser (`localStorage`) and in the bookmarklet.
+- After KV → D1 migration, a one-time write token is issued and shown in a dismissible banner with a new bookmarklet.
+- Rate limits and field length limits protect against abuse.
 
 ## Quick Start
 
-1. Visit [cloudmark.site](https://cloudmark.site)
-2. Generate a unique identifier (mark) or use a custom one
-3. Install the bookmarklet to your browser
-4. Click the bookmarklet to save webpages while browsing
-5. Visit `cloudmark.site/your-mark` anytime to view and manage your bookmarks
+1. Visit [cloudmark.site/doc](https://cloudmark.site/doc)
+2. Generate a `mark` and write token (or customize the mark)
+3. Drag the bookmarklet to your browser bookmarks bar
+4. Click the bookmarklet while browsing to save pages
+5. Open `cloudmark.site/your-mark` to manage bookmarks
+
+### Migrating from the old (KV) version
+
+1. Open your existing collection URL (`/your-mark`)
+2. Data is migrated to D1 automatically
+3. A banner shows your **new write token** and **new bookmarklet**
+4. Copy the token, reinstall the bookmarklet, then dismiss the banner
+5. On other devices, paste the same token when prompted
 
 ## Local Development
 
 ### Prerequisites
 
-- Node.js 15+ and pnpm
+- Node.js 20+ and pnpm
 - Cloudflare account (for preview and deployment)
 
 ### Install Dependencies
@@ -42,54 +63,88 @@ Try it online: [https://cloudmark.yxra3603.workers.dev/](https://cloudmark.yxra3
 pnpm install
 ```
 
+### D1 setup
+
+1. Create a D1 database:
+
+```bash
+pnpm exec wrangler d1 create cloudmark
+```
+
+2. Put the returned `database_id` into `wrangler.jsonc` → `d1_databases[0].database_id`.
+
+3. Apply migrations:
+
+```bash
+# local (Miniflare)
+pnpm db:migrate:local
+
+# production
+pnpm db:migrate:remote
+```
+
+Legacy KV binding (`cloudmark`) can remain for automatic migration; remove it after all collections are migrated.
+
 ### Development Mode
 
 ```bash
 pnpm dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to see the result.
+Visit [http://localhost:3000](http://localhost:3000).
 
-### Local Preview with Cloudflare Pages
+### Local Preview with Cloudflare
 
 ```bash
+pnpm db:migrate:local
 pnpm preview
 ```
 
 ### Build and Deploy
 
 ```bash
+pnpm db:migrate:remote
 pnpm deploy
 ```
 
 ## Cloudflare Configuration
 
-### KV Namespace
+### D1 Database
 
-Cloudmark uses Cloudflare KV to store bookmark data. You need to:
+```jsonc
+"d1_databases": [
+  {
+    "binding": "DB",
+    "database_name": "cloudmark",
+    "database_id": "your-d1-database-id",
+    "migrations_dir": "migrations"
+  }
+]
+```
 
-1. Create a KV namespace in your Cloudflare Dashboard
-2. Update the `wrangler.jsonc` file:
-   ```json
-   "kv_namespaces": [
-      {
-        "binding": "cloudmark",
-        "id": "your-kv-namespace-id"
-      }
-   ]
-   ```
+### KV Namespace (optional, migration only)
+
+```jsonc
+"kv_namespaces": [
+  {
+    "binding": "cloudmark",
+    "id": "your-kv-namespace-id"
+  }
+]
+```
 
 ### Environment Variables
 
-- `NEXT_PUBLIC_BASE_URL` - Base URL of the site (optional, defaults to current domain)
+- `NEXT_PUBLIC_BASE_URL` — site base URL (optional; defaults to current domain)
 
 ## Technology Stack
 
-- [Next.js](https://nextjs.org/) - React framework
-- [Cloudflare Pages](https://pages.cloudflare.com/) - Hosting and serverless functions
-- [Cloudflare KV](https://developers.cloudflare.com/workers/runtime-apis/kv/) - Data storage
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-- [Next-Intl](https://next-intl-docs.vercel.app/) - Internationalization
+- [Next.js](https://nextjs.org/) — React framework
+- [Cloudflare Workers](https://workers.cloudflare.com/) — hosting (OpenNext)
+- [Cloudflare D1](https://developers.cloudflare.com/d1/) — primary data store
+- [Cloudflare KV](https://developers.cloudflare.com/kv/) — legacy migration source
+- [Tailwind CSS](https://tailwindcss.com/) — styling
+- [Next-Intl](https://next-intl-docs.vercel.app/) — internationalization
 
 ## License
 

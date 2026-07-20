@@ -33,14 +33,14 @@
     "loading": "加载中...",
     "intro": {
       "title": "什么是 Cloudmark？",
-      "description": "Cloudmark 是一个基于云的书签收集工具，允许您一键保存和组织网页书签，并从任何设备访问。",
+      "description": "Cloudmark 是一个基于云的书签收集工具，允许您一键保存和组织网页书签，并从任何设备访问。写操作需要密钥 write token 以保证安全。",
       "features": {
         "title": "主要特点",
         "oneClick": "一键保存当前浏览页面",
-        "cloud": "云端存储确保跨设备访问",
+        "cloud": "Cloudflare D1 云端存储，跨设备访问",
         "categories": "按分类整理和筛选书签",
         "custom": "可自定义的书签集合",
-        "sorting": "支持多种排序和布局视图",
+        "sorting": "Write token 保护集合写入",
         "multilingual": "支持多语言界面"
       }
     },
@@ -49,15 +49,22 @@
       "markName": {
         "title": "设置书签的名称",
         "placeholder": "为您的书签 ID 取个名字",
-        "description": "此名称将用于您的书签集合，只能包含字母、数字、下划线和连字符。",
+        "description": "此名称将用于您的书签集合，只能包含字母、数字、下划线和连字符（4–64 个字符）。",
         "button": "随机生成"
+      },
+      "writeToken": {
+        "title": "您的写入令牌（Write Token）",
+        "description": "所有写操作（添加、编辑、删除）都需要此密钥。它只保存在您的浏览器中，并嵌入到 bookmarklet 里。请妥善保管，不要公开分享。",
+        "copy": "复制",
+        "regenerate": "重新生成",
+        "hint": "令牌会自动保存在当前浏览器。若需在其他设备使用，请先复制保存。"
       },
       "bookmarklet": {
         "title": "安装书签工具",
         "saveButton": "保存到 {mark}",
         "openButton": "打开 {mark} 书签",
         "dragTip": "拖动到书签栏",
-        "description": "将上面的按钮拖动到您的浏览器书签栏，以便随时保存当前浏览的网页。"
+        "description": "将上面的按钮拖动到浏览器书签栏。Bookmarklet 已包含 write token，保存时会进行鉴权。"
       },
       "code": {
         "title": "查看 Bookmarklet 代码",
@@ -69,19 +76,19 @@
       "steps": {
         "setup": {
           "title": "设置您的 Bookmarklet",
-          "description": "按照上面的说明创建您的书签集合名称并将 bookmarklet 添加到您的浏览器书签栏中。每个书签集合名称对应一个独立的书签集合。"
+          "description": "创建书签集合名称和 write token，然后将 bookmarklet 添加到浏览器书签栏。首次成功保存会使用该 token 认领集合。"
         },
         "save": {
           "title": "保存网页到您的集合",
-          "description": "当您浏览网页时，点击书签栏中的 Cloudmark bookmarklet，会打开添加书签的页面。填写分类和描述（可选），然后保存即可。"
+          "description": "浏览网页时点击书签栏中的 Cloudmark bookmarklet 即可保存。不含 token 的旧版 bookmarklet 将无法使用。"
         },
         "access": {
           "title": "访问您的书签集合",
-          "description": "通过访问 {baseUrl}/{mark} 可以查看和管理您保存的所有书签。您可以在任何设备和浏览器上访问这个 URL。"
+          "description": "通过访问 {baseUrl}/{mark} 可以查看和管理您保存的所有书签。写操作需要在该设备上配置 write token。"
         },
         "manage": {
           "title": "整理和管理您的书签",
-          "description": "您可以编辑或删除书签，更改分类视图，按不同条件排序，以及使用分类筛选器快速找到您需要的书签。"
+          "description": "您可以编辑或删除书签并更改分类。若从旧版迁移，请按页面横幅提示保存新 token 并重新安装 bookmarklet。"
         }
       }
     },
@@ -110,15 +117,47 @@
     "addFirstBookmark": "添加第一个书签",
     "loading": "正在加载书签...",
     "bookmarkletTip": "拖拽此按钮到书签栏，一键保存网页到此收藏",
+    "bookmarkletNeedsToken": "请先配置写入令牌",
     "saveButton": "保存到 {mark}",
     "dragTip": "拖拽到书签栏",
     "demoMode": "演示模式",
-    "demoDescription": "这是一个演示集合，您可以自由添加、编辑和删除书签，所有操作仅在本地生效，不会保存到服务器。",
+    "demoDescription": "这是一个演示集合，您可以自由浏览界面。操作不会保存到服务器。",
     "createOwn": "创建自己的收藏",
     "success": "成功",
     "error": "错误",
     "warning": "警告",
-    "info": "信息"
+    "info": "信息",
+    "notifications": {
+      "bookmarkAdded": "书签添加成功",
+      "markRequired": "需要 mark 参数",
+      "urlRequired": "需要 URL 参数",
+      "tokenRequired": "需要 write token。请更新 bookmarklet。",
+      "processingError": "处理书签时出错"
+    },
+    "SecurityBanner": {
+      "migratedTitle": "集合已迁移 — 请保存写入令牌",
+      "migratedDescription": "您的书签已从旧版 KV 存储迁移到 D1，并生成了新的 write token。请复制令牌并重新安装下方的 bookmarklet，之后可关闭此横幅。",
+      "updateTitle": "安全更新 — 请重新安装 bookmarklet",
+      "updateDescription": "写操作现在需要 write token。请使用下方的新 bookmarklet，以确保一键保存继续可用。",
+      "tokenRequiredTitle": "需要写入令牌",
+      "tokenRequiredDescription": "此集合已受保护。请粘贴 write token，以便在本设备上添加/编辑/删除书签并使用 bookmarklet。",
+      "pasteToken": "粘贴写入令牌",
+      "tokenPlaceholder": "tok_…",
+      "saveToken": "保存令牌",
+      "pasteHint": "若已在其他设备完成迁移，请从那里复制 token。或前往「快速入门」创建新集合。",
+      "or": "或",
+      "generateToken": "生成新的写入令牌",
+      "generateHint": "新集合：在此生成 token，然后添加第一条书签以认领集合。若集合已有所有者，重新生成无法解锁，请粘贴正确的 token。",
+      "yourToken": "您的写入令牌",
+      "copyToken": "复制",
+      "tokenWarning": "持有此令牌的人可以修改您的集合，请勿公开分享。",
+      "newBookmarklet": "新 Bookmarklet（含 token）",
+      "saveButton": "保存到 {mark}",
+      "dragTip": "拖到书签栏",
+      "copyBookmarklet": "复制代码",
+      "bookmarkletHint": "将按钮拖到书签栏，或替换旧的 bookmarklet。不含 token 的旧版将无法写入。",
+      "dismiss": "关闭横幅"
+    }
   },
   "Components": {
     "MarkInput": {
@@ -172,6 +211,7 @@
         "urlRequired": "请输入网址",
         "invalidUrl": "请输入有效的网址",
         "categoryRequired": "请选择分类",
+        "tokenRequired": "本设备需要 write token",
         "addFailed": "添加书签失败",
         "updateFailed": "更新书签失败",
         "deleteFailed": "删除书签失败"
@@ -195,6 +235,7 @@
     "bookmarkAdded": "书签已成功添加",
     "bookmarkExists": "该 URL 的书签已存在",
     "urlRequired": "URL 是必需的",
+    "tokenRequired": "需要 write token",
     "processingError": "处理书签时出错"
   }
 }

@@ -1,27 +1,39 @@
+"use client";
+
 import { BookmarkPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useCallback, useEffect } from "react";
+import { useMemo } from "react";
+import { buildBookmarkletCode } from "@/lib/bookmarklet";
 
 interface BookmarkletButtonProps {
   mark: string;
   baseUrl: string;
+  writeToken: string | null;
 }
 
-export function BookmarkletButton({ mark, baseUrl }: BookmarkletButtonProps) {
+export function BookmarkletButton({
+  mark,
+  baseUrl,
+  writeToken,
+}: BookmarkletButtonProps) {
   const t = useTranslations("BookmarksPage");
-  const [bookmarkletCode, setBookmarkletCode] = useState("");
 
-  const generateBookmarkletCode = useCallback(() => {
-    const code = `javascript:(function(){let m='${mark}',u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);window.open('${baseUrl}/api/add?mark='+m+'&title='+t+'&url='+u, '_blank').focus()})()`;
-    setBookmarkletCode(code);
-  }, [mark, baseUrl]);
+  const bookmarkletCode = useMemo(() => {
+    if (!writeToken) return "";
+    return buildBookmarkletCode(baseUrl, mark, writeToken);
+  }, [mark, baseUrl, writeToken]);
 
-  useEffect(() => {
-    generateBookmarkletCode();
-  }, [generateBookmarkletCode]);
+  if (!writeToken) {
+    return (
+      <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium border border-dashed border-muted-foreground/30 text-muted-foreground h-9 px-4 py-2 opacity-70">
+        <BookmarkPlus className="h-4 w-4 mr-2" />
+        {t("bookmarkletNeedsToken")}
+      </div>
+    );
+  }
 
   return (
-    <div className=" hover-scale">
+    <div className="hover-scale">
       <a
         href="#"
         draggable={true}

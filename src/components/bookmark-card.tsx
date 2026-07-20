@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Trash2, Edit2 } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { memo } from "react";
@@ -19,6 +19,7 @@ interface BookmarkCardProps {
   bookmark: BookmarkInstance;
   mark: string;
   categories: string[];
+  writeToken: string | null;
   onBookmarkUpdated: (bookmark: BookmarkInstance) => void;
   onBookmarkDeleted: () => void;
 }
@@ -27,6 +28,7 @@ export const BookmarkCard = memo(function BookmarkCard({
   bookmark,
   mark,
   categories,
+  writeToken,
   onBookmarkUpdated,
   onBookmarkDeleted,
 }: BookmarkCardProps) {
@@ -115,6 +117,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                 mark={mark}
                 bookmark={bookmark}
                 categories={categories}
+                writeToken={writeToken}
                 onBookmarkUpdated={onBookmarkUpdated}
               />
             </div>
@@ -122,6 +125,7 @@ export const BookmarkCard = memo(function BookmarkCard({
               <DialogDelete
                 mark={mark}
                 bookmark={bookmark}
+                writeToken={writeToken}
                 onBookmarkDeleted={onBookmarkDeleted}
               />
             </div>

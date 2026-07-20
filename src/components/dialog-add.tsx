@@ -46,12 +46,14 @@ import type { BookmarkInstance } from "@/lib/types";
 interface DialogCreateProps {
   mark: string;
   categories: string[];
+  writeToken: string | null;
   onBookmarkAdded: (bookmark: BookmarkInstance) => void;
 }
 
 export function DialogAdd({
   mark,
   categories,
+  writeToken,
   onBookmarkAdded,
 }: DialogCreateProps) {
   const t = useTranslations("Components.BookmarkDialog");
@@ -61,10 +63,10 @@ export function DialogAdd({
   const [newCategory, setNewCategory] = useState("");
 
   const form = useForm<InsertSchema>({
-    // @ts-ignore
     resolver: zodResolver(insertSchema),
     defaultValues: {
       mark,
+      token: writeToken || "",
       url: "",
       title: "",
       description: "",
@@ -87,7 +89,14 @@ export function DialogAdd({
       toast.dismiss();
       toast.success(t("addSuccess"));
       onBookmarkAdded(bookmark.data);
-      form.reset();
+      form.reset({
+        mark,
+        token: writeToken || "",
+        url: "",
+        title: "",
+        description: "",
+        category: categories[0] || "",
+      });
       setOpen(false);
     },
   });
@@ -109,13 +118,17 @@ export function DialogAdd({
   };
 
   const onSubmit = async (data: InsertSchema) => {
+    if (!writeToken) {
+      toast.error(t("errors.tokenRequired"));
+      return;
+    }
     const formData = new FormData();
     formData.append("mark", data.mark);
+    formData.append("token", writeToken);
     formData.append("url", data.url);
     formData.append("title", data.title);
     formData.append("description", data.description || "");
 
-    // 使用新分类或选择的分类
     const categoryValue = isCreatingNewCategory ? newCategory : data.category;
     formData.append("category", categoryValue);
 
@@ -126,7 +139,11 @@ export function DialogAdd({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <div className="hover-scale">
-          <Button className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md">
+          <Button
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md"
+            disabled={!writeToken}
+            title={!writeToken ? t("errors.tokenRequired") : undefined}
+          >
             <PlusCircle className="h-4 w-4" />
             {t("addBookmark")}
           </Button>
@@ -297,7 +314,7 @@ export function DialogAdd({
               <div className="hover-scale-sm">
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !writeToken}
                   className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
                 >
                   {isSubmitting && (

@@ -10,7 +10,9 @@
     "preview": "opennextjs-cloudflare && wrangler dev",
     "deploy": "opennextjs-cloudflare && wrangler deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv env.d.ts",
-    "analyze": "ANALYZE=true next build"
+    "analyze": "ANALYZE=true next build",
+    "db:migrate:local": "wrangler d1 migrations apply cloudmark --local",
+    "db:migrate:remote": "wrangler d1 migrations apply cloudmark --remote"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
@@ -61,6 +63,9 @@
       "esbuild",
       "sharp",
       "workerd"
-    ]
+    ],
+    "overrides": {
+      "@opennextjs/aws": "3.5.4"
+    }
   }
 }

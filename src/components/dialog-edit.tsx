@@ -55,6 +55,7 @@ interface DialogEditProps {
   mark: string;
   bookmark: BookmarkInstance;
   categories: string[];
+  writeToken: string | null;
   onBookmarkUpdated: (bookmark: BookmarkInstance) => void;
 }
 
@@ -62,6 +63,7 @@ export function DialogEdit({
   mark,
   bookmark,
   categories,
+  writeToken,
   onBookmarkUpdated,
 }: DialogEditProps) {
   const t = useTranslations("Components.BookmarkDialog");
@@ -71,10 +73,10 @@ export function DialogEdit({
   const [newCategory, setNewCategory] = useState("");
 
   const form = useForm<UpdateSchema>({
-    // @ts-ignore
     resolver: zodResolver(updateSchema),
     defaultValues: {
       mark,
+      token: writeToken || "",
       uuid: bookmark.uuid,
       url: bookmark.url,
       title: bookmark.title,
@@ -93,12 +95,11 @@ export function DialogEdit({
       setIsSubmitting(true);
       toast.loading(t("updating"));
     },
-    onSuccess: async (bookmark) => {
+    onSuccess: async (result) => {
       setIsSubmitting(false);
       toast.dismiss();
       toast.success(t("updateSuccess"));
-      onBookmarkUpdated(bookmark.data);
-      form.reset();
+      onBookmarkUpdated(result.data);
       setOpen(false);
     },
   });
@@ -120,14 +121,18 @@ export function DialogEdit({
   };
 
   const onSubmit = async (data: UpdateSchema) => {
+    if (!writeToken) {
+      toast.error(t("errors.tokenRequired"));
+      return;
+    }
     const formData = new FormData();
     formData.append("mark", data.mark);
+    formData.append("token", writeToken);
     formData.append("uuid", data.uuid);
     formData.append("url", data.url);
     formData.append("title", data.title);
     formData.append("description", data.description || "");
 
-    // 使用新分类或选择的分类
     const categoryValue = isCreatingNewCategory ? newCategory : data.category;
     formData.append("category", categoryValue);
 
@@ -141,6 +146,7 @@ export function DialogEdit({
           variant="outline"
           size="sm"
           className="border-indigo-500/20 hover:border-indigo-500/40 bg-indigo-500/5 hover:bg-indigo-500/10"
+          disabled={!writeToken}
         >
           <Edit2 className="h-3 w-3" />
           <span className="sr-only">{t("edit")}</span>
@@ -311,7 +317,7 @@ export function DialogEdit({
               <div className="hover-scale-sm">
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !writeToken}
                   className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
                 >
                   {isSubmitting && (

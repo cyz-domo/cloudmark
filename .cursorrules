@@ -4,9 +4,10 @@
   "architecture": {
     "frontend": "Next.js 15 (App Router)与shadcn UI组件库",
     "styling": "Tailwind CSS，使用shadcn预设的设计系统",
-    "backend": "Cloudflare Pages和Workers (Edge运行时)",
-    "storage": "Cloudflare KV作为数据存储",
-    "deployment": "使用wrangler部署到Cloudflare Pages"
+    "backend": "Cloudflare Workers (OpenNext Edge运行时)",
+    "storage": "Cloudflare D1 主存储；KV 仅用于旧数据只读迁移",
+    "security": "写操作需要 write token（SHA-256 哈希存 D1，明文在 localStorage/bookmarklet）",
+    "deployment": "使用 wrangler 部署到 Cloudflare Workers"
   },
   
   "code_standards": {

@@ -1,7 +1,8 @@
 import "./page.css";
 import { getBaseUrl, getCategories } from "@/lib/utils";
-import { getBookmarkData } from "@/lib/actions";
+import { getCollectionPageData } from "@/lib/actions";
 import { BookmarkUI } from "@/components/bookmark-ui";
+
 interface BookmarksPageProps {
   params: Promise<{ mark: string }>;
   searchParams: Promise<{ [key: string]: string | undefined }>;
@@ -19,7 +20,13 @@ export default async function BookmarksPage({
   if (status && message) {
     toast = { status, message };
   }
-  const bookmarksData = await getBookmarkData({ mark });
+
+  const pageData = await getCollectionPageData({ mark });
+  // Empty collection still gets a shell so users can add bookmarks
+  const bookmarksData = pageData.bookmarksData ?? {
+    mark,
+    bookmarks: [],
+  };
   const categories = getCategories(bookmarksData);
   const baseUrl = getBaseUrl();
 
@@ -30,6 +37,9 @@ export default async function BookmarksPage({
       categories={categories}
       toast={toast}
       baseUrl={baseUrl}
+      issuedWriteToken={pageData.issuedWriteToken}
+      migratedFromKv={pageData.migratedFromKv}
+      collectionExists={pageData.exists}
     />
   );
 }

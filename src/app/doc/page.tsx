@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,84 +11,82 @@ import {
   Copy,
   Book,
   CheckCircle,
-  Globe,
   BookOpen,
   Wand2,
   RefreshCcw,
   HashIcon,
-  ArrowDown,
   ChevronRight,
+  KeyRound,
+  Shield,
 } from "lucide-react";
 import "./page.css";
 import { generateRandomMark, getBaseUrl } from "@/lib/utils";
+import { generateWriteToken } from "@/lib/security";
+import { buildBookmarkletCode } from "@/lib/bookmarklet";
+import { setStoredWriteToken } from "@/lib/token-store";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export default function DocPage() {
   const t = useTranslations("DocPage");
-  // 创建 bookmarklet 的 mark 参数
   const [mark, setMark] = useState("");
-  // 生成的 bookmarklet 代码
-  const [bookmarkletCode, setBookmarkletCode] = useState("");
-  // 复制按钮状态
-  const [copied, setCopied] = useState(false);
-  // 随机生成中状态
+  const [writeToken, setWriteToken] = useState("");
+  const [copied, setCopied] = useState<"code" | "token" | "url" | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // 获取当前网站的基础 URL
   const baseUrl = getBaseUrl();
 
-  // 生成 bookmarklet 代码
-  const generateBookmarkletCode = useCallback(
-    (markValue: string) => {
-      const code = `javascript:(function(){let m='${markValue}',u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);window.open('${baseUrl}/api/add?mark='+m+'&title='+t+'&url='+u, '_blank').focus()})()`;
-      setBookmarkletCode(code);
-      return code;
-    },
-    [baseUrl],
-  );
+  const bookmarkletCode = useMemo(() => {
+    if (!mark || !writeToken) return "";
+    return buildBookmarkletCode(baseUrl, mark, writeToken);
+  }, [baseUrl, mark, writeToken]);
 
-  // 当 mark 值改变时更新 bookmarklet 代码
+  // Persist token when mark/token change
   useEffect(() => {
-    if (mark) {
-      generateBookmarkletCode(mark);
+    if (mark && writeToken) {
+      setStoredWriteToken(mark, writeToken);
     }
-  }, [mark, generateBookmarkletCode]);
+  }, [mark, writeToken]);
 
-  // 初始化随机 mark
+  // Initialize random mark + write token
   useEffect(() => {
     setMark(generateRandomMark());
+    setWriteToken(generateWriteToken());
   }, []);
 
-  // 处理复制 bookmarklet 代码
-  const handleCopy = () => {
-    navigator.clipboard.writeText(
-      bookmarkletCode || generateBookmarkletCode(mark),
-    );
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = (kind: "code" | "token" | "url") => {
+    const text =
+      kind === "code"
+        ? bookmarkletCode
+        : kind === "token"
+          ? writeToken
+          : `${baseUrl}/${mark}`;
+    navigator.clipboard.writeText(text);
+    setCopied(kind);
+    setTimeout(() => setCopied(null), 2000);
   };
 
-  // 生成随机 mark 值
   const handleGenerateRandom = () => {
     setIsGenerating(true);
-    setMark(generateRandomMark());
+    const nextMark = generateRandomMark();
+    const nextToken = generateWriteToken();
+    setMark(nextMark);
+    setWriteToken(nextToken);
+    setStoredWriteToken(nextMark, nextToken);
     setTimeout(() => setIsGenerating(false), 500);
   };
 
-  // 处理 mark 输入变化
   const handleMarkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // 移除特殊字符，只允许字母、数字、下划线和连字符
     const cleanedValue = e.target.value.replace(/[^a-zA-Z0-9_-]/g, "");
     setMark(cleanedValue);
   };
 
-  // 处理复制URL
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(`${baseUrl}/${mark}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleRegenerateToken = () => {
+    const next = generateWriteToken();
+    setWriteToken(next);
+    if (mark) {
+      setStoredWriteToken(mark, next);
+    }
   };
 
   if (!mark) {
@@ -332,11 +330,60 @@ export default function DocPage() {
                   </div>
                 </div>
 
-                {/* 书签按钮部分 */}
+                {/* Write token */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center">
                     <span className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 mr-2 text-sm">
                       2
+                    </span>
+                    {t("setup.writeToken.title")}
+                  </h3>
+                  <div className="bg-white/50 dark:bg-slate-900/50 rounded-lg p-5 border border-amber-100 dark:border-amber-900/30">
+                    <div className="flex items-start gap-2 mb-3 text-amber-700 dark:text-amber-300 text-sm">
+                      <Shield className="h-4 w-4 mt-0.5 shrink-0" />
+                      <p>{t("setup.writeToken.description")}</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <code className="flex-1 truncate rounded-md border border-amber-500/20 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs sm:text-sm font-mono flex items-center gap-2">
+                        <KeyRound className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                        {writeToken || "…"}
+                      </code>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-amber-500/30"
+                        onClick={() => handleCopy("token")}
+                      >
+                        {copied === "token" ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                        <span className="ml-1.5">{t("setup.writeToken.copy")}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-amber-500/30"
+                        onClick={handleRegenerateToken}
+                      >
+                        <RefreshCcw className="h-4 w-4 mr-1" />
+                        {t("setup.writeToken.regenerate")}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {t("setup.writeToken.hint")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 书签按钮部分 */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center">
+                    <span className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 mr-2 text-sm">
+                      3
                     </span>
                     {t("setup.bookmarklet.title")}
                   </h3>
@@ -402,9 +449,9 @@ export default function DocPage() {
                           size="sm"
                           variant="ghost"
                           className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm hover:bg-white dark:hover:bg-slate-900 transition-all duration-200"
-                          onClick={handleCopy}
+                          onClick={() => handleCopy("code")}
                         >
-                          {copied ? (
+                          {copied === "code" ? (
                             <Check className="h-4 w-4 text-green-500" />
                           ) : (
                             <Copy className="h-4 w-4" />

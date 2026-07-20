@@ -33,14 +33,14 @@
     "loading": "Loading...",
     "intro": {
       "title": "What is Cloudmark?",
-      "description": "Cloudmark is a cloud-based bookmark collection tool that allows you to save and organize web bookmarks with one click and access them from any device.",
+      "description": "Cloudmark is a cloud-based bookmark collection tool that allows you to save and organize web bookmarks with one click and access them from any device. Write operations require a secret write token for security.",
       "features": {
         "title": "Key Features",
         "oneClick": "One-click saving of current webpage",
-        "cloud": "Cloud storage for cross-device access",
+        "cloud": "Cloud storage (Cloudflare D1) for cross-device access",
         "categories": "Organize and filter bookmarks by categories",
         "custom": "Customizable bookmark collections",
-        "sorting": "Multiple sorting and layout options",
+        "sorting": "Write-token protection for your collection",
         "multilingual": "Multilingual interface support"
       }
     },
@@ -49,15 +49,22 @@
       "markName": {
         "title": "Set Your Bookmark Name",
         "placeholder": "Name your bookmark ID",
-        "description": "This name will be used for your bookmark collection and can only contain letters, numbers, underscores, and hyphens.",
+        "description": "This name will be used for your bookmark collection and can only contain letters, numbers, underscores, and hyphens (4–64 characters).",
         "button": "Generate Random"
+      },
+      "writeToken": {
+        "title": "Your Write Token",
+        "description": "This secret token is required for all write operations (add, edit, delete). It is stored only in your browser and embedded in the bookmarklet. Keep it private.",
+        "copy": "Copy",
+        "regenerate": "Regenerate",
+        "hint": "The token is saved in this browser automatically. Copy it if you need another device or browser."
       },
       "bookmarklet": {
         "title": "Install Bookmark Tool",
         "saveButton": "Save to {mark}",
         "openButton": "Open {mark} Bookmarks",
         "dragTip": "Drag to bookmark bar",
-        "description": "Drag the button above to your browser's bookmark bar to save the current webpage anytime."
+        "description": "Drag the button above to your browser's bookmark bar. The bookmarklet includes your write token so saves are authenticated."
       },
       "code": {
         "title": "View Bookmarklet Code",
@@ -69,19 +76,19 @@
       "steps": {
         "setup": {
           "title": "Set Up Your Bookmarklet",
-          "description": "Follow the instructions above to create your bookmark collection name and add the bookmarklet to your browser's bookmark bar. Each bookmark collection name corresponds to a separate bookmark collection."
+          "description": "Create your collection name and write token, then add the bookmarklet to your browser's bookmark bar. The first successful save claims the collection with your token."
         },
         "save": {
           "title": "Save Webpages to Your Collection",
-          "description": "When browsing a webpage, click the Cloudmark bookmarklet in your bookmark bar to open the bookmark addition page. Fill in the category and description (optional), then save."
+          "description": "When browsing a webpage, click the Cloudmark bookmarklet in your bookmark bar to save it. Old bookmarklets without a token will no longer work."
         },
         "access": {
           "title": "Access Your Bookmark Collection",
-          "description": "Access {baseUrl}/{mark} to view and manage all your saved bookmarks. You can access this URL from any device or browser."
+          "description": "Access {baseUrl}/{mark} to view and manage all your saved bookmarks. You can access this URL from any device or browser. Writing requires the write token on that device."
         },
         "manage": {
           "title": "Organize and Manage Your Bookmarks",
-          "description": "You can edit or delete bookmarks, change category views, sort by different criteria, and use category filters to quickly find the bookmarks you need."
+          "description": "You can edit or delete bookmarks and change categories. If you migrate from an older version, follow the on-page banner to save your new token and reinstall the bookmarklet."
         }
       }
     },
@@ -110,15 +117,47 @@
     "addFirstBookmark": "Add your first bookmark",
     "loading": "Loading bookmarks...",
     "bookmarkletTip": "Drag this button to your bookmarks bar to save pages with one click",
+    "bookmarkletNeedsToken": "Set write token first",
     "saveButton": "Save to {mark}",
     "dragTip": "Drag to bookmarks bar",
     "demoMode": "Demo Mode",
-    "demoDescription": "This is a demo collection. You can freely add, edit, and delete bookmarks. All changes will only affect your local view and won't be saved to the server.",
+    "demoDescription": "This is a demo collection. You can freely explore the UI. Changes are not saved to the server.",
     "createOwn": "Create Your Own",
     "success": "Success",
     "error": "Error",
     "warning": "Warning",
-    "info": "Information"
+    "info": "Information",
+    "notifications": {
+      "bookmarkAdded": "Bookmark added successfully",
+      "markRequired": "Mark is required",
+      "urlRequired": "URL is required",
+      "tokenRequired": "Write token is required. Update your bookmarklet.",
+      "processingError": "Error processing bookmark"
+    },
+    "SecurityBanner": {
+      "migratedTitle": "Collection migrated — save your write token",
+      "migratedDescription": "Your bookmarks were moved from legacy storage to D1. A new write token was issued. Copy it and reinstall the bookmarklet below, then you can dismiss this banner.",
+      "updateTitle": "Security update — reinstall your bookmarklet",
+      "updateDescription": "Writes now require a write token. Use the new bookmarklet below so one-click saves keep working.",
+      "tokenRequiredTitle": "Write token required",
+      "tokenRequiredDescription": "This collection is protected. Paste your write token to enable add/edit/delete and the bookmarklet on this device.",
+      "pasteToken": "Paste write token",
+      "tokenPlaceholder": "tok_…",
+      "saveToken": "Save token",
+      "pasteHint": "If you just migrated on another device, copy the token from there. Or open Quick Start to create a new collection.",
+      "or": "or",
+      "generateToken": "Generate a new write token",
+      "generateHint": "For a new collection: generate a token here, then add your first bookmark to claim it. Do not generate a new token if this collection already has an owner — that will not unlock it.",
+      "yourToken": "Your write token",
+      "copyToken": "Copy",
+      "tokenWarning": "Anyone with this token can modify your collection. Do not share it publicly.",
+      "newBookmarklet": "New bookmarklet (with token)",
+      "saveButton": "Save to {mark}",
+      "dragTip": "Drag to bookmarks bar",
+      "copyBookmarklet": "Copy code",
+      "bookmarkletHint": "Drag the button to your bookmarks bar, or replace the old bookmarklet. Old bookmarklets without a token will fail.",
+      "dismiss": "Dismiss banner"
+    }
   },
   "Components": {
     "MarkInput": {
@@ -172,6 +211,7 @@
         "urlRequired": "URL is required",
         "invalidUrl": "Please enter a valid URL",
         "categoryRequired": "Category is required",
+        "tokenRequired": "Write token is required on this device",
         "addFailed": "Failed to add bookmark",
         "updateFailed": "Failed to update bookmark",
         "deleteFailed": "Failed to delete bookmark"
@@ -195,6 +235,7 @@
     "bookmarkAdded": "Bookmark added successfully",
     "bookmarkExists": "Bookmark with this URL already exists",
     "urlRequired": "URL is required",
+    "tokenRequired": "Write token is required",
     "processingError": "Error processing bookmark"
   }
 }

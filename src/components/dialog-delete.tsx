@@ -1,6 +1,5 @@
 "use client";
 
-import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,12 +27,14 @@ import type { BookmarkInstance } from "@/lib/types";
 interface DialogDeleteProps {
   mark: string;
   bookmark: BookmarkInstance;
+  writeToken: string | null;
   onBookmarkDeleted: () => void;
 }
 
 export function DialogDelete({
   mark,
   bookmark,
+  writeToken,
   onBookmarkDeleted,
 }: DialogDeleteProps) {
   const t = useTranslations("Components.BookmarkDialog");
@@ -41,10 +42,10 @@ export function DialogDelete({
   const [open, setOpen] = useState(false);
 
   const form = useForm<DeleteSchema>({
-    // @ts-ignore
     resolver: zodResolver(deleteSchema),
     defaultValues: {
       mark,
+      token: writeToken || "",
       uuid: bookmark.uuid,
     },
   });
@@ -70,8 +71,13 @@ export function DialogDelete({
   });
 
   const onSubmit = async (data: DeleteSchema) => {
+    if (!writeToken) {
+      toast.error(t("errors.tokenRequired"));
+      return;
+    }
     const formData = new FormData();
     formData.append("mark", data.mark);
+    formData.append("token", writeToken);
     formData.append("uuid", data.uuid);
 
     deleteBookmark(formData);
@@ -84,6 +90,7 @@ export function DialogDelete({
           variant="outline"
           size="sm"
           className="border-red-500/20 hover:border-red-500/40 bg-red-500/5 hover:bg-red-500/10 text-red-500/80 hover:text-red-500"
+          disabled={!writeToken}
         >
           <Trash2 className="h-3 w-3" />
           <span className="sr-only">{t("delete")}</span>
@@ -120,7 +127,7 @@ export function DialogDelete({
               <div className="hover-scale-sm">
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !writeToken}
                   variant="destructive"
                 >
                   {isSubmitting && (
