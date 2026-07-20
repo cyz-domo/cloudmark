@@ -40,14 +40,23 @@ export const BookmarkRow = memo(function BookmarkRow({
       data-selected={selected}
       data-uuid={bookmark.uuid}
       className={cn(
-        "bookmark-row group grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-b border-border/60 px-2 py-1.5 text-sm transition-colors sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,8rem)_auto_auto] sm:gap-3 sm:px-3",
-        "hover:bg-muted/50",
-        selected && "bg-accent/80",
+        "bookmark-row group relative grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-b border-border/60 px-2 py-1.5 text-sm transition-all duration-150 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,8rem)_auto_auto] sm:gap-3 sm:px-3",
+        "hover:bg-muted/60",
+        selected
+          ? "z-[1] bg-primary/8 shadow-[inset_3px_0_0_0_hsl(var(--primary))] ring-1 ring-inset ring-primary/25"
+          : "bg-transparent",
       )}
       onClick={onSelect}
       onDoubleClick={onOpen}
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-muted">
+      {/* Selection indicator */}
+      <div
+        className={cn(
+          "flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm transition-colors",
+          selected ? "bg-primary/15 ring-1 ring-primary/30" : "bg-muted",
+        )}
+        aria-hidden
+      >
         {bookmark.favicon ? (
           <img
             src={bookmark.favicon}
@@ -62,13 +71,24 @@ export const BookmarkRow = memo(function BookmarkRow({
             }}
           />
         ) : (
-          <ExternalLink className="h-3 w-3 text-muted-foreground" />
+          <ExternalLink
+            className={cn(
+              "h-3 w-3",
+              selected ? "text-primary" : "text-muted-foreground",
+            )}
+          />
         )}
       </div>
 
       <div className="min-w-0">
         <div className="flex min-w-0 items-baseline gap-2">
-          <span className="truncate font-medium leading-tight" title={bookmark.title}>
+          <span
+            className={cn(
+              "truncate leading-tight",
+              selected ? "font-semibold text-foreground" : "font-medium",
+            )}
+            title={bookmark.title}
+          >
             {bookmark.title}
           </span>
           <span
@@ -90,19 +110,29 @@ export const BookmarkRow = memo(function BookmarkRow({
 
       <Badge
         variant="outline"
-        className="hidden max-w-[8rem] truncate px-1.5 py-0 text-2xs font-normal sm:inline-flex"
+        className={cn(
+          "hidden max-w-[8rem] truncate px-1.5 py-0 text-2xs font-normal sm:inline-flex",
+          selected && "border-primary/30 bg-primary/5 text-foreground",
+        )}
       >
         {bookmark.category}
       </Badge>
 
-      <span className="hidden whitespace-nowrap text-2xs text-muted-foreground tabular-nums md:inline">
+      <span
+        className={cn(
+          "hidden whitespace-nowrap text-2xs tabular-nums md:inline",
+          selected ? "text-foreground/70" : "text-muted-foreground",
+        )}
+      >
         {date}
       </span>
 
       <div
         className={cn(
-          "flex shrink-0 items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100",
-          selected && "sm:opacity-100",
+          "flex shrink-0 items-center gap-0.5 transition-opacity",
+          selected
+            ? "opacity-100"
+            : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100",
         )}
         onClick={(e) => e.stopPropagation()}
       >

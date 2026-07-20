@@ -8,6 +8,8 @@ export interface CollectionRow {
   created_at: string;
   updated_at: string;
   migrated_from_kv: number;
+  /** 0 = one-time plaintext token not yet delivered to a client */
+  token_delivered: number;
 }
 
 export interface BookmarkRow {
@@ -39,12 +41,15 @@ export async function getCollection(
   db: D1Database,
   mark: string,
 ): Promise<CollectionRow | null> {
-  return db
+  const row = await db
     .prepare(
-      "SELECT mark, write_token_hash, created_at, updated_at, migrated_from_kv FROM collections WHERE mark = ?",
+      `SELECT mark, write_token_hash, created_at, updated_at, migrated_from_kv,
+              COALESCE(token_delivered, 1) as token_delivered
+       FROM collections WHERE mark = ?`,
     )
     .bind(mark)
     .first<CollectionRow>();
+  return row;
 }
 
 export async function getBookmarksForMark(
@@ -89,15 +94,72 @@ export async function createCollection(
   db: D1Database,
   mark: string,
   writeTokenHash: string,
-  options?: { migratedFromKv?: boolean },
+  options?: { migratedFromKv?: boolean; tokenDelivered?: boolean },
 ): Promise<void> {
   const now = new Date().toISOString();
+  // Migrated collections default to token_delivered=0 so the first page open can issue once.
+  const delivered =
+    options?.tokenDelivered !== undefined
+      ? options.tokenDelivered
+        ? 1
+        : 0
+      : options?.migratedFromKv
+        ? 0
+        : 1;
   await db
     .prepare(
-      `INSERT INTO collections (mark, write_token_hash, created_at, updated_at, migrated_from_kv)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO collections
+        (mark, write_token_hash, created_at, updated_at, migrated_from_kv, token_delivered)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .bind(mark, writeTokenHash, now, now, options?.migratedFromKv ? 1 : 0)
+    .bind(
+      mark,
+      writeTokenHash,
+      now,
+      now,
+      options?.migratedFromKv ? 1 : 0,
+      delivered,
+    )
+    .run();
+}
+
+/** Issue a fresh write token and mark it undelivered (or delivered). */
+export async function rotateCollectionToken(
+  db: D1Database,
+  mark: string,
+  writeTokenHash: string,
+  options?: { delivered?: boolean; clearMigratedFlag?: boolean },
+): Promise<void> {
+  const now = new Date().toISOString();
+  const delivered = options?.delivered === false ? 0 : 1;
+  if (options?.clearMigratedFlag) {
+    await db
+      .prepare(
+        `UPDATE collections
+         SET write_token_hash = ?, updated_at = ?, token_delivered = ?, migrated_from_kv = 0
+         WHERE mark = ?`,
+      )
+      .bind(writeTokenHash, now, delivered, mark)
+      .run();
+  } else {
+    await db
+      .prepare(
+        `UPDATE collections
+         SET write_token_hash = ?, updated_at = ?, token_delivered = ?
+         WHERE mark = ?`,
+      )
+      .bind(writeTokenHash, now, delivered, mark)
+      .run();
+  }
+}
+
+export async function markTokenDelivered(
+  db: D1Database,
+  mark: string,
+): Promise<void> {
+  await db
+    .prepare("UPDATE collections SET token_delivered = 1 WHERE mark = ?")
+    .bind(mark)
     .run();
 }
 
@@ -109,7 +171,9 @@ export async function updateCollectionToken(
   const now = new Date().toISOString();
   await db
     .prepare(
-      "UPDATE collections SET write_token_hash = ?, updated_at = ?, migrated_from_kv = 0 WHERE mark = ?",
+      `UPDATE collections
+       SET write_token_hash = ?, updated_at = ?, migrated_from_kv = 0, token_delivered = 1
+       WHERE mark = ?`,
     )
     .bind(writeTokenHash, now, mark)
     .run();

@@ -57,13 +57,30 @@
   }
 }
 
-/* High-density list selection */
+/* High-density list selection — primary bar + soft fill */
 .bookmark-row[data-selected="true"] {
-  @apply bg-accent/80;
+  background-color: hsl(var(--primary) / 0.08);
+  box-shadow: inset 3px 0 0 0 hsl(var(--primary));
+}
+
+.bookmark-row[data-selected="true"]:hover {
+  background-color: hsl(var(--primary) / 0.12);
 }
 
 .bookmark-row:focus-visible {
-  @apply outline-none ring-1 ring-ring ring-inset;
+  outline: none;
+  box-shadow:
+    inset 3px 0 0 0 hsl(var(--primary)),
+    inset 0 0 0 1px hsl(var(--ring) / 0.45);
+}
+
+/* Keyboard nav: keep selected row readable on alternating contexts */
+@media (prefers-reduced-motion: no-preference) {
+  .bookmark-row {
+    transition:
+      background-color 120ms ease,
+      box-shadow 120ms ease;
+  }
 }
 
 /* Compact kbd chips */

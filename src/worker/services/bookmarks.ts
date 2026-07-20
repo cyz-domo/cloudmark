@@ -11,6 +11,8 @@ import {
   getCollection,
   insertBookmark,
   insertBookmarksBatch,
+  markTokenDelivered,
+  rotateCollectionToken,
   updateBookmark,
   updateCollectionToken,
 } from "@/shared/db";
@@ -19,6 +21,7 @@ import type { ImportItemSchema } from "@/shared/schema";
 import { migrateFromKvIfNeeded } from "@/shared/migrate";
 import {
   checkRateLimit,
+  generateWriteToken,
   hashWriteToken,
   isValidMarkFormat,
   verifyWriteToken,
@@ -39,8 +42,14 @@ export async function getFavicon(url: string, size: number = 64) {
   }
 }
 
+/** Marks allowed for write ops on existing collections (incl. legacy). */
 function isAcceptableMark(mark: string): boolean {
-  return Boolean(mark) && mark.length <= 128 && /^[a-zA-Z0-9_-]+$/.test(mark);
+  return (
+    Boolean(mark) &&
+    mark.length <= 128 &&
+    !/[\0\n\r\\]/.test(mark) &&
+    !mark.includes("..")
+  );
 }
 
 export async function getCollectionPageData(
@@ -55,13 +64,26 @@ export async function getCollectionPageData(
     };
   }
 
-  if (!mark || mark.length > 128 || /[^a-zA-Z0-9_-]/.test(mark)) {
+  if (!isAcceptableMark(mark)) {
     return { bookmarksData: null, exists: false };
   }
 
   const existing = await getCollection(db, mark);
   if (existing) {
     const bookmarksData = await getBookmarksData(db, mark);
+    // Bulk-migrated (or not-yet-delivered) collections: issue token once on open
+    if (existing.token_delivered === 0) {
+      const issuedWriteToken = generateWriteToken();
+      const hash = await hashWriteToken(issuedWriteToken);
+      await rotateCollectionToken(db, mark, hash, { delivered: true });
+      await markTokenDelivered(db, mark);
+      return {
+        bookmarksData,
+        exists: true,
+        issuedWriteToken,
+        migratedFromKv: existing.migrated_from_kv === 1,
+      };
+    }
     return {
       bookmarksData,
       exists: true,
@@ -71,6 +93,8 @@ export async function getCollectionPageData(
 
   const migration = await migrateFromKvIfNeeded(db, kv, mark);
   if (migration) {
+    // Token already shown via issuedWriteToken — mark delivered
+    await markTokenDelivered(db, mark);
     return {
       bookmarksData: migration.bookmarksData,
       exists: true,

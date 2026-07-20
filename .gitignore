@@ -22,6 +22,10 @@ out
 # typescript
 *.tsbuildinfo
 
+# migration reports / run logs (operational; do not commit)
+scripts/migration-report.json
+scripts/migration-run.log
+
 # IDE
 .idea
 .vscode/*

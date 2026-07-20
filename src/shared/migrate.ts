@@ -30,7 +30,15 @@ export async function migrateFromKvIfNeeded(
   kv: KVNamespace | undefined,
   mark: string,
 ): Promise<MigrationResult | null> {
-  if (!kv || !mark || mark.length > 128 || /[^a-zA-Z0-9_-]/.test(mark)) {
+  // Legacy KV marks may include spaces / punctuation; only reject empty,
+  // oversized, or path/control characters that would break storage.
+  if (
+    !kv ||
+    !mark ||
+    mark.length > 128 ||
+    /[\0\n\r\\]/.test(mark) ||
+    mark.includes("..")
+  ) {
     return null;
   }
 
