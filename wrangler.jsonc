@@ -27,16 +27,6 @@
       "migrations_dir": "migrations",
     },
   ],
-  /**
-   * KV — read-only for one-time migration of legacy collections.
-   * Safe to remove after all collections have been migrated.
-   */
-  "kv_namespaces": [
-    {
-      "binding": "cloudmark",
-      "id": "38a8d89cb0a44b0cb66f798009f16a93",
-    },
-  ],
   "vars": {
     "BASE_URL": "https://cloudmark.site",
   },

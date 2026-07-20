@@ -18,7 +18,6 @@ import {
 } from "@/shared/db";
 import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
 import type { ImportItemSchema } from "@/shared/schema";
-import { migrateFromKvIfNeeded } from "@/shared/migrate";
 import {
   checkRateLimit,
   generateWriteToken,
@@ -54,7 +53,6 @@ function isAcceptableMark(mark: string): boolean {
 
 export async function getCollectionPageData(
   db: D1Database,
-  kv: KVNamespace | undefined,
   mark: string,
 ): Promise<CollectionPageData> {
   if (isDemoMark(mark)) {
@@ -71,7 +69,7 @@ export async function getCollectionPageData(
   const existing = await getCollection(db, mark);
   if (existing) {
     const bookmarksData = await getBookmarksData(db, mark);
-    // Bulk-migrated (or not-yet-delivered) collections: issue token once on open
+    // Collections with token_delivered=0: issue write token once on first open
     if (existing.token_delivered === 0) {
       const issuedWriteToken = generateWriteToken();
       const hash = await hashWriteToken(issuedWriteToken);
@@ -91,18 +89,7 @@ export async function getCollectionPageData(
     };
   }
 
-  const migration = await migrateFromKvIfNeeded(db, kv, mark);
-  if (migration) {
-    // Token already shown via issuedWriteToken — mark delivered
-    await markTokenDelivered(db, mark);
-    return {
-      bookmarksData: migration.bookmarksData,
-      exists: true,
-      issuedWriteToken: migration.issuedWriteToken,
-      migratedFromKv: true,
-    };
-  }
-
+  // Empty shell for valid new marks (first write claims the collection)
   if (!isValidMarkFormat(mark)) {
     return { bookmarksData: null, exists: false };
   }

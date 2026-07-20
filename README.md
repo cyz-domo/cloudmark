@@ -2,6 +2,7 @@
 
 [![AGPL LICENSE](https://img.shields.io/badge/LICENSE-AGPL-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Try It Online](https://img.shields.io/badge/TryIt-Online-orange.svg)](https://cloudmark.site/)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wesleyel/cloudmark)
 
 [中文文档](README.zh.md)
 
@@ -18,10 +19,11 @@ Try it online: [https://cloudmark.site/](https://cloudmark.site/)
 - 🏷️ **Category Management**: Custom categories for organization
 - ⌨️ **Keyboard-first**: `/` search, `j/k` navigate, `n/e/d` CRUD, `?` help
 - 📋 **High density**: Compact list with instant filter / sort
+- 🎨 **Custom icons**: Emoji, letter marks, or upload SVG/ICO/PNG
 - 🌐 **Cross-Device Access**: Read anywhere; copy the write token to another device to write
 - 📝 **Detailed Descriptions**: Optional notes per bookmark
 - 🌍 **Multi-Language Support**: English and Chinese
-- 🗄️ **Cloudflare D1**: Relational storage with automatic KV → D1 migration for legacy data
+- 🗄️ **Cloudflare D1**: Relational storage on the edge
 
 ## Security Model
 
@@ -32,7 +34,6 @@ Try it online: [https://cloudmark.site/](https://cloudmark.site/)
 | Bookmarklet save | `mark` + `token` query params |
 
 - Write tokens are hashed (SHA-256) in D1; plaintext is only stored in the browser (`localStorage`) and in the bookmarklet.
-- After KV → D1 migration, a one-time write token is issued and shown in a dismissible banner with a new bookmarklet.
 - Rate limits and field length limits protect against abuse.
 
 ## Quick Start
@@ -42,14 +43,6 @@ Try it online: [https://cloudmark.site/](https://cloudmark.site/)
 3. Drag the bookmarklet to your browser bookmarks bar
 4. Click the bookmarklet while browsing to save pages
 5. Open `https://cloudmark.site/your-mark` to manage bookmarks
-
-### Migrating from the old (KV) version
-
-1. Open your existing collection URL (`/your-mark`)
-2. Data is migrated to D1 automatically
-3. A banner shows your **new write token** and **new bookmarklet**
-4. Copy the token, reinstall the bookmarklet, then dismiss the banner
-5. On other devices, paste the same token when prompted
 
 ## Local Development
 
@@ -84,8 +77,6 @@ pnpm db:migrate:local
 pnpm db:migrate:remote
 ```
 
-Legacy KV binding (`cloudmark`) can remain for automatic migration; remove it after all collections are migrated.
-
 ### Development Mode
 
 ```bash
@@ -103,10 +94,18 @@ pnpm preview
 
 ### Build and Deploy
 
+One-click deploy (creates a Cloudflare Worker from this repo):
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wesleyel/cloudmark)
+
+Or from your machine:
+
 ```bash
 pnpm db:migrate:remote
-pnpm deploy
+pnpm run deploy
 ```
+
+After the first deploy, set `d1_databases[0].database_id` in `wrangler.jsonc` (or via the dashboard) and run migrations.
 
 ## Cloudflare Configuration
 
@@ -123,17 +122,6 @@ pnpm deploy
 ]
 ```
 
-### KV Namespace (optional, migration only)
-
-```jsonc
-"kv_namespaces": [
-  {
-    "binding": "cloudmark",
-    "id": "your-kv-namespace-id"
-  }
-]
-```
-
 ### Environment Variables
 
 - `BASE_URL` — public site URL in Worker vars (optional; client uses current origin)
@@ -143,9 +131,8 @@ pnpm deploy
 - [TypeScript 7](https://www.typescriptlang.org/) — language
 - [React](https://react.dev/) + [Vite](https://vite.dev/) — SPA frontend
 - [Hono](https://hono.dev/) — Worker API
-- [Cloudflare Workers](https://workers.cloudflare.com/) — hosting (`@cloudflare/vite-plugin`, no OpenNext)
+- [Cloudflare Workers](https://workers.cloudflare.com/) — hosting (`@cloudflare/vite-plugin`)
 - [Cloudflare D1](https://developers.cloudflare.com/d1/) — primary data store
-- [Cloudflare KV](https://developers.cloudflare.com/kv/) — legacy migration source
 - [Tailwind CSS](https://tailwindcss.com/) + shadcn/ui — styling
 
 ## License

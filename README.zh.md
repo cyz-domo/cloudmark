@@ -2,6 +2,7 @@
 
 [![AGPL LICENSE](https://img.shields.io/badge/LICENSE-AGPL-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![在线试用](https://img.shields.io/badge/TryIt-Online-orange.svg)](https://cloudmark.site/)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wesleyel/cloudmark)
 
 [English](README.md)
 
@@ -18,9 +19,10 @@ Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创�
 - 🏷️ **分类管理**：自定义分类整理书签
 - ⌨️ **键盘优先**：`/` 搜索、`j/k` 导航、`n/e/d` 增删改、`?` 帮助
 - 📋 **高信息密度**：紧凑列表 + 即时筛选 / 排序
+- 🎨 **自定义图标**：表情、字母徽标，或上传 SVG/ICO/PNG
 - 🌐 **跨设备访问**：任意设备可读；写入需在该设备配置 token
 - 🌍 **多语言**：中文 / 英文
-- 🗄️ **Cloudflare D1**：关系型存储，支持从旧版 KV 自动迁移
+- 🗄️ **Cloudflare D1**：边缘关系型存储
 
 ## 安全模型
 
@@ -31,7 +33,6 @@ Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创�
 | Bookmarklet 保存 | `mark` + `token` 查询参数 |
 
 - Write token 在 D1 中仅存 SHA-256 哈希；明文只存在浏览器 `localStorage` 与 bookmarklet 中。
-- KV → D1 迁移后会一次性签发 write token，页面横幅展示新 token 与新 bookmarklet，可关闭。
 - 带有速率限制与字段长度限制。
 
 ## 快速开始
@@ -41,14 +42,6 @@ Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创�
 3. 将 bookmarklet 拖到浏览器书签栏
 4. 浏览时点击 bookmarklet 保存页面
 5. 打开 `https://cloudmark.site/你的-mark` 管理书签
-
-### 从旧版（KV）迁移
-
-1. 打开原有集合 URL（`/你的-mark`）
-2. 数据自动迁移到 D1
-3. 横幅显示 **新 write token** 与 **新 bookmarklet**
-4. 复制 token、重装 bookmarklet，然后关闭横幅
-5. 其他设备在提示时粘贴同一 token
 
 ## 本地开发
 
@@ -72,8 +65,6 @@ pnpm db:migrate:local    # 本地
 pnpm db:migrate:remote   # 生产
 ```
 
-旧版 KV binding 可保留用于自动迁移，全部迁移完成后可移除。
-
 ### 开发模式
 
 ```bash
@@ -82,16 +73,24 @@ pnpm dev
 
 ### 预览 / 部署
 
+一键部署（从本仓库创建 Cloudflare Worker）：
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wesleyel/cloudmark)
+
+或在本机：
+
 ```bash
 pnpm db:migrate:local && pnpm preview
-pnpm db:migrate:remote && pnpm deploy
+pnpm db:migrate:remote && pnpm run deploy
 ```
+
+首次部署后，请在 `wrangler.jsonc`（或控制台）配置 `d1_databases[0].database_id` 并执行 migrations。
 
 ## 技术栈
 
 - **TypeScript 7** · **React 19** · **Vite** · **Hono**
-- Cloudflare Workers（`@cloudflare/vite-plugin`，无 OpenNext / Next.js）
-- Cloudflare D1（主存储）/ KV（迁移源）
+- Cloudflare Workers（`@cloudflare/vite-plugin`）
+- Cloudflare D1
 - Tailwind CSS · shadcn/ui
 
 ## 许可证

@@ -28,7 +28,7 @@ function jsonError(c: { json: (data: unknown, status?: number) => Response }, me
 api.get("/collections/:mark", async (c) => {
   const mark = c.req.param("mark");
   try {
-    const data = await getCollectionPageData(c.env.DB, c.env.cloudmark, mark);
+    const data = await getCollectionPageData(c.env.DB, mark);
     return c.json(data);
   } catch (e) {
     console.error(e);

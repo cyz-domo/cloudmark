@@ -300,7 +300,7 @@ export async function assertUnderBookmarkLimit(
 }
 
 /**
- * Insert many bookmarks in a single batch (used by KV migration).
+ * Insert many bookmarks in a single batch (import / bulk ops).
  */
 export async function insertBookmarksBatch(
   db: D1Database,

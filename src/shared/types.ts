@@ -15,16 +15,15 @@ export interface BookmarksData {
 }
 
 /**
- * Server payload for the collection page, including optional one-time token issue
- * after KV migration or collection creation.
+ * Server payload for the collection page, including optional one-time token issue.
  */
 export interface CollectionPageData {
   bookmarksData: BookmarksData | null;
   /** True when collection exists in D1 (or demo) */
   exists: boolean;
-  /** Plaintext write token issued once (migration / claim) — client must persist it */
+  /** Plaintext write token issued once — client must persist it */
   issuedWriteToken?: string;
-  /** Collection was just migrated from legacy KV */
+  /** Historical flag: collection was migrated from legacy storage */
   migratedFromKv?: boolean;
 }
 
