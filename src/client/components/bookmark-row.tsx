@@ -6,6 +6,7 @@ import { cn, getDomain } from "@/shared/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTranslations } from "@/client/i18n/context";
+import { BookmarkIcon } from "@/client/components/bookmark-icon";
 
 interface BookmarkRowProps {
   bookmark: BookmarkInstance;
@@ -82,7 +83,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
       </button>
 
-      {/* Favicon */}
+      {/* Favicon / custom icon */}
       <div
         className={cn(
           "flex h-5 w-5 shrink-0 items-center justify-center justify-self-center overflow-hidden rounded-sm transition-colors",
@@ -92,27 +93,12 @@ export const BookmarkRow = memo(function BookmarkRow({
         )}
         aria-hidden
       >
-        {bookmark.favicon ? (
-          <img
-            src={bookmark.favicon}
-            alt=""
-            className="h-4 w-4"
-            loading="lazy"
-            width={16}
-            height={16}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                "/placeholder.svg?height=16&width=16";
-            }}
-          />
-        ) : (
-          <ExternalLink
-            className={cn(
-              "h-3 w-3",
-              selected || focused ? "text-primary" : "text-muted-foreground",
-            )}
-          />
-        )}
+        <BookmarkIcon
+          favicon={bookmark.favicon}
+          title={bookmark.title}
+          className="text-sm"
+          imgClassName="h-4 w-4"
+        />
       </div>
 
       {/* Title / URL / description stack */}

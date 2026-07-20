@@ -203,9 +203,11 @@ export async function createBookmark(
     title: string;
     description?: string;
     category: string;
+    favicon?: string;
   },
 ): Promise<BookmarkInstance> {
-  const { mark, token, url, title, description, category } = input;
+  const { mark, token, url, title, description, category, favicon: customFavicon } =
+    input;
   if (isDemoMark(mark)) {
     throw new Error("Demo mode");
   }
@@ -251,7 +253,10 @@ export async function createBookmark(
   }
 
   const uuid = crypto.randomUUID();
-  const favicon = await getFavicon(url);
+  const favicon =
+    customFavicon && customFavicon.length > 0
+      ? customFavicon
+      : await getFavicon(url);
   const now = new Date().toISOString();
   const newBookmark: BookmarkInstance = {
     uuid,
@@ -283,9 +288,20 @@ export async function updateBookmarkRecord(
     title: string;
     description?: string;
     category: string;
+    /** When provided (including empty string), replaces favicon. Omit to auto-handle. */
+    favicon?: string | null;
   },
 ): Promise<BookmarkInstance> {
-  const { mark, token, uuid, url, title, description, category } = input;
+  const {
+    mark,
+    token,
+    uuid,
+    url,
+    title,
+    description,
+    category,
+    favicon: faviconInput,
+  } = input;
   await requireWriteAccess(db, mark, token, `write:${mark}`);
 
   const existing = await findBookmarkByUuid(db, mark, uuid);
@@ -300,8 +316,14 @@ export async function updateBookmarkRecord(
     }
   }
 
-  const favicon =
-    url !== existing.url ? await getFavicon(url) : existing.favicon;
+  let favicon = existing.favicon;
+  if (faviconInput !== undefined && faviconInput !== null) {
+    // Explicit client value: non-empty custom icon, or empty → re-fetch site icon
+    favicon =
+      faviconInput.length > 0 ? faviconInput : await getFavicon(url);
+  } else if (url !== existing.url) {
+    favicon = await getFavicon(url);
+  }
 
   const updatedBookmark: BookmarkInstance = {
     ...existing,

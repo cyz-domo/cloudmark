@@ -265,6 +265,30 @@
         "partialFailed": "Failed to update {count} bookmarks",
         "failed": "Bulk edit failed"
       }
+    },
+    "IconPicker": {
+      "label": "Icon",
+      "hint": "Emoji picker, letter mark, upload SVG/ICO/PNG, or paste a URL",
+      "clear": "Clear",
+      "tabUpload": "Upload",
+      "tabUrl": "URL",
+      "useSiteIcon": "Use site favicon",
+      "letterMark": "Letter mark",
+      "applyMark": "Apply",
+      "chooseFile": "Choose SVG / ICO / PNG…",
+      "uploadHint": "Max 48KB. SVG, ICO, PNG, JPEG, GIF, WebP.",
+      "applyUrl": "Apply",
+      "resetToSite": "Reset to site favicon",
+      "invalidUrl": "Invalid icon URL",
+      "invalidFileType": "Unsupported file type",
+      "fileTooLarge": "File too large (max {max}KB)",
+      "uploaded": "Icon uploaded",
+      "uploadFailed": "Upload failed",
+      "currentEmoji": "Emoji icon: {emoji}",
+      "tabEmoji": "Emoji",
+      "tabMark": "Mark",
+      "emojiSearch": "Search emoji…",
+      "openEmojiPicker": "Choose emoji…"
     }
   },
   "Notifications": {

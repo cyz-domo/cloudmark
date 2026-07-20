@@ -27,6 +27,7 @@ export async function createBookmarkApi(input: {
   title: string;
   description?: string;
   category: string;
+  favicon?: string;
 }): Promise<BookmarkInstance> {
   const res = await fetch("/api/bookmarks", {
     method: "POST",
@@ -44,6 +45,7 @@ export async function updateBookmarkApi(input: {
   title: string;
   description?: string;
   category: string;
+  favicon?: string;
 }): Promise<BookmarkInstance> {
   const res = await fetch(`/api/bookmarks/${encodeURIComponent(input.uuid)}`, {
     method: "PUT",

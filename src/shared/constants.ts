@@ -15,6 +15,10 @@ export const URL_MAX_LENGTH = 2048;
 export const CATEGORY_MAX_LENGTH = 50;
 export const TOKEN_MIN_LENGTH = 16;
 export const TOKEN_MAX_LENGTH = 128;
+/** Max length for favicon field (URL or data: URI) */
+export const FAVICON_MAX_LENGTH = 96_000;
+/** Max upload size for custom icon files (bytes) */
+export const FAVICON_UPLOAD_MAX_BYTES = 48_000;
 
 /** Reserved marks that cannot be claimed */
 export const RESERVED_MARKS = new Set(["demo", "default", "api", "doc", "static"]);

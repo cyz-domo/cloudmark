@@ -34,6 +34,7 @@ import { insertSchema, type InsertSchema } from "@/shared/schema";
 import type { BookmarkInstance } from "@/shared/types";
 import { createBookmarkApi } from "@/client/lib/api";
 import { useTranslations } from "@/client/i18n/context";
+import { IconPicker } from "@/client/components/icon-picker";
 
 interface DialogAddProps {
   mark: string;
@@ -56,6 +57,7 @@ export function DialogAdd({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
   const [newCategory, setNewCategory] = useState("");
+  const [favicon, setFavicon] = useState<string | undefined>(undefined);
 
   const form = useForm<InsertSchema>({
     resolver: zodResolver(insertSchema),
@@ -66,6 +68,7 @@ export function DialogAdd({
       title: "",
       description: "",
       category: categories[0] || "default",
+      favicon: undefined,
     },
   });
 
@@ -78,7 +81,9 @@ export function DialogAdd({
         title: "",
         description: "",
         category: categories[0] || "default",
+        favicon: undefined,
       });
+      setFavicon(undefined);
       setIsCreatingNewCategory(false);
       setNewCategory("");
     }
@@ -98,6 +103,7 @@ export function DialogAdd({
         title: data.title,
         description: data.description,
         category: isCreatingNewCategory ? newCategory : data.category,
+        favicon: favicon || undefined,
       });
       toast.success(t("addSuccess"));
       onBookmarkAdded(bookmark);
@@ -258,6 +264,12 @@ export function DialogAdd({
                   <FormMessage />
                 </FormItem>
               )}
+            />
+
+            <IconPicker
+              value={favicon}
+              onChange={setFavicon}
+              pageUrl={form.watch("url")}
             />
 
             <DialogFooter className="gap-2 sm:gap-0">

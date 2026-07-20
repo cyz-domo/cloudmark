@@ -2,12 +2,14 @@ import { z } from "zod";
 import {
   CATEGORY_MAX_LENGTH,
   DESCRIPTION_MAX_LENGTH,
+  FAVICON_MAX_LENGTH,
   MARK_MAX_LENGTH,
   TITLE_MAX_LENGTH,
   TOKEN_MAX_LENGTH,
   TOKEN_MIN_LENGTH,
   URL_MAX_LENGTH,
 } from "./constants";
+import { isValidFaviconValue } from "./favicon";
 
 /** Accepts new strict marks and legacy migrated marks (looser length). */
 const markSchema = z
@@ -33,11 +35,20 @@ const urlSchema = z
     message: "URL must start with http:// or https://",
   });
 
+const faviconSchema = z
+  .string()
+  .max(FAVICON_MAX_LENGTH)
+  .optional()
+  .refine((v) => isValidFaviconValue(v), {
+    message: "Invalid favicon",
+  });
+
 export const baseSchema = z.object({
   url: urlSchema,
   title: z.string().min(1).max(TITLE_MAX_LENGTH),
   description: z.string().max(DESCRIPTION_MAX_LENGTH).optional(),
   category: z.string().min(1).max(CATEGORY_MAX_LENGTH),
+  favicon: faviconSchema,
 });
 
 export const insertSchema = z.object({

@@ -87,3 +87,14 @@
 kbd {
   @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-border bg-muted px-1 font-mono text-2xs font-medium text-muted-foreground;
 }
+
+/* emoji-picker-react inside nested dialog — ensure scroll/click work */
+.emoji-picker-shell .EmojiPickerReact {
+  --epr-emoji-size: 1.5rem;
+  border: none !important;
+  box-shadow: none !important;
+}
+.emoji-picker-shell .EmojiPickerReact .epr-body {
+  /* library handles inner scroll; keep pointer events on */
+  pointer-events: auto;
+}

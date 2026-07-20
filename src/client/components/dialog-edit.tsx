@@ -34,6 +34,7 @@ import { updateSchema, type UpdateSchema } from "@/shared/schema";
 import type { BookmarkInstance } from "@/shared/types";
 import { updateBookmarkApi } from "@/client/lib/api";
 import { useTranslations } from "@/client/i18n/context";
+import { IconPicker } from "@/client/components/icon-picker";
 
 interface DialogEditProps {
   mark: string;
@@ -58,6 +59,7 @@ export function DialogEdit({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
   const [newCategory, setNewCategory] = useState("");
+  const [favicon, setFavicon] = useState<string | undefined>(undefined);
 
   const form = useForm<UpdateSchema>({
     resolver: zodResolver(updateSchema),
@@ -69,6 +71,7 @@ export function DialogEdit({
       title: bookmark?.title || "",
       description: bookmark?.description || "",
       category: bookmark?.category || "default",
+      favicon: bookmark?.favicon,
     },
   });
 
@@ -82,7 +85,9 @@ export function DialogEdit({
         title: bookmark.title,
         description: bookmark.description || "",
         category: bookmark.category,
+        favicon: bookmark.favicon,
       });
+      setFavicon(bookmark.favicon);
       setIsCreatingNewCategory(false);
       setNewCategory("");
     }
@@ -103,6 +108,8 @@ export function DialogEdit({
         title: data.title,
         description: data.description,
         category: isCreatingNewCategory ? newCategory : data.category,
+        // Always send favicon field so server applies custom / clear
+        favicon: favicon ?? "",
       });
       toast.success(t("updateSuccess"));
       onBookmarkUpdated(updated);
@@ -246,6 +253,12 @@ export function DialogEdit({
                   <FormMessage />
                 </FormItem>
               )}
+            />
+
+            <IconPicker
+              value={favicon}
+              onChange={setFavicon}
+              pageUrl={form.watch("url")}
             />
 
             <DialogFooter className="gap-2 sm:gap-0">

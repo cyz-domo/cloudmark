@@ -265,6 +265,30 @@
         "partialFailed": "{count} 个书签更新失败",
         "failed": "批量编辑失败"
       }
+    },
+    "IconPicker": {
+      "label": "图标",
+      "hint": "表情选择器、字母徽标、上传 SVG/ICO/PNG，或粘贴图片 URL",
+      "clear": "清除",
+      "tabUpload": "上传",
+      "tabUrl": "链接",
+      "useSiteIcon": "使用网站图标",
+      "letterMark": "字母徽标",
+      "applyMark": "应用",
+      "chooseFile": "选择 SVG / ICO / PNG…",
+      "uploadHint": "最大 48KB。支持 SVG、ICO、PNG、JPEG、GIF、WebP。",
+      "applyUrl": "应用",
+      "resetToSite": "恢复为网站图标",
+      "invalidUrl": "图标 URL 无效",
+      "invalidFileType": "不支持的文件类型",
+      "fileTooLarge": "文件过大（最大 {max}KB）",
+      "uploaded": "图标已上传",
+      "uploadFailed": "上传失败",
+      "currentEmoji": "当前表情：{emoji}",
+      "tabEmoji": "表情",
+      "tabMark": "徽标",
+      "emojiSearch": "搜索表情…",
+      "openEmojiPicker": "选择表情…"
     }
   },
   "Notifications": {
