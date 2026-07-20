@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { getDomain } from "@/shared/utils";
 import type { BookmarkInstance } from "@/shared/types";
 import { deleteBookmarkApi } from "@/client/lib/api";
 import { useTranslations } from "@/client/i18n/context";
-import { useHotkeys } from "@/client/hooks/use-hotkeys";
 
 interface DialogDeleteProps {
   mark: string;
@@ -37,34 +36,65 @@ export function DialogDelete({
   const t = useTranslations("Components.BookmarkDialog");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const submittingRef = useRef(false);
 
   const count = bookmarks.length;
   const first = bookmarks[0] ?? null;
 
+  // Keep latest props/state for key handlers (avoid stale closures)
+  const stateRef = useRef({
+    mark,
+    bookmarks,
+    writeToken,
+    isSubmitting,
+    t,
+    onOpenChange,
+    onBookmarksDeleted,
+  });
+  stateRef.current = {
+    mark,
+    bookmarks,
+    writeToken,
+    isSubmitting,
+    t,
+    onOpenChange,
+    onBookmarksDeleted,
+  };
+
+  useEffect(() => {
+    submittingRef.current = isSubmitting;
+  }, [isSubmitting]);
+
   useEffect(() => {
     if (open) {
-      // Prefer cancel as default action for Enter (browser button focus)
       const id = requestAnimationFrame(() => cancelRef.current?.focus());
       return () => cancelAnimationFrame(id);
     }
   }, [open]);
 
-  const onCancel = () => {
-    if (isSubmitting) return;
-    onOpenChange(false);
-  };
+  const onCancel = useCallback(() => {
+    if (submittingRef.current) return;
+    stateRef.current.onOpenChange(false);
+  }, []);
 
-  const onConfirm = async () => {
-    if (!bookmarks.length || !writeToken) {
-      toast.error(t("errors.tokenRequired"));
+  const onConfirm = useCallback(async () => {
+    const s = stateRef.current;
+    if (submittingRef.current) return;
+    if (!s.bookmarks.length || !s.writeToken) {
+      toast.error(s.t("errors.tokenRequired"));
       return;
     }
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      const uuids = bookmarks.map((b) => b.uuid);
+      const uuids = s.bookmarks.map((b) => b.uuid);
       const results = await Promise.allSettled(
         uuids.map((uuid) =>
-          deleteBookmarkApi({ mark, token: writeToken, uuid }),
+          deleteBookmarkApi({
+            mark: s.mark,
+            token: s.writeToken!,
+            uuid,
+          }),
         ),
       );
       const deleted: string[] = [];
@@ -74,50 +104,62 @@ export function DialogDelete({
         else failed += 1;
       });
       if (deleted.length > 0) {
-        onBookmarksDeleted(deleted);
+        s.onBookmarksDeleted(deleted);
         toast.success(
           deleted.length === 1
-            ? t("deleteSuccess")
-            : t("deleteSuccessMulti", { count: deleted.length }),
+            ? s.t("deleteSuccess")
+            : s.t("deleteSuccessMulti", { count: deleted.length }),
         );
       }
       if (failed > 0) {
-        toast.error(t("errors.deleteFailedMulti", { count: failed }));
+        toast.error(s.t("errors.deleteFailedMulti", { count: failed }));
       }
-      onOpenChange(false);
+      s.onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("errors.deleteFailed"));
+      toast.error(e instanceof Error ? e.message : s.t("errors.deleteFailed"));
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
-  };
+  }, []);
 
-  useHotkeys(
-    [
-      {
-        key: "d",
-        allowInInput: true,
-        handler: () => {
-          void onConfirm();
-        },
-      },
-      {
-        key: "Enter",
-        allowInInput: true,
-        handler: () => {
-          onCancel();
-        },
-      },
-      {
-        key: "Escape",
-        allowInInput: true,
-        handler: () => {
-          onCancel();
-        },
-      },
-    ],
-    open && !isSubmitting,
-  );
+  // Capture-phase listener so Radix focus trap / stopPropagation cannot swallow keys
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+      if (key === "d" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        void onConfirm();
+        return;
+      }
+
+      if (key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        onCancel();
+        return;
+      }
+
+      if (key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onCancel();
+      }
+    };
+
+    // Capture on document so we run before Dialog / button handlers
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [open, onConfirm, onCancel]);
 
   if (!first) return null;
 
@@ -141,9 +183,15 @@ export function DialogDelete({
           e.preventDefault();
           cancelRef.current?.focus();
         }}
+        // Prevent focused Cancel button from also firing on Enter (we handle it)
         onKeyDown={(e) => {
-          // Stop radix/dialog default Enter-on-focused-button from fighting us
-          if (e.key === "d" || e.key === "D" || e.key === "Enter") {
+          if (
+            e.key === "d" ||
+            e.key === "D" ||
+            e.key === "Enter" ||
+            e.key === "Escape"
+          ) {
+            e.preventDefault();
             e.stopPropagation();
           }
         }}

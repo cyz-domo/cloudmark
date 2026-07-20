@@ -13,6 +13,7 @@ import {
   Loader2,
   Plus,
   Search,
+  Pencil,
   Trash2,
   Upload,
   X,
@@ -47,6 +48,7 @@ import {
 import { DialogAdd } from "@/client/components/dialog-add";
 import { DialogEdit } from "@/client/components/dialog-edit";
 import { DialogDelete } from "@/client/components/dialog-delete";
+import { DialogBulkEdit } from "@/client/components/dialog-bulk-edit";
 import { DemoBanner } from "@/client/components/demo-banner";
 import { MigrationBanner } from "@/client/components/migration-banner";
 import { BookmarkletButton } from "@/client/components/bookmarklet-button";
@@ -82,6 +84,7 @@ export function CollectionPage() {
   const [anchorIndex, setAnchorIndex] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [tokenOpen, setTokenOpen] = useState(false);
@@ -103,6 +106,7 @@ export function CollectionPage() {
   const dialogOpen =
     addOpen ||
     editOpen ||
+    bulkEditOpen ||
     deleteOpen ||
     helpOpen ||
     tokenOpen ||
@@ -336,6 +340,18 @@ export function CollectionPage() {
     });
   }, []);
 
+  const onBookmarksUpdated = useCallback((updated: BookmarkInstance[]) => {
+    if (updated.length === 0) return;
+    const map = new Map(updated.map((b) => [b.uuid, b]));
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        bookmarks: prev.bookmarks.map((b) => map.get(b.uuid) ?? b),
+      };
+    });
+  }, []);
+
   const onBookmarksDeleted = useCallback((uuids: string[]) => {
     const gone = new Set(uuids);
     setData((prev) => {
@@ -371,6 +387,29 @@ export function CollectionPage() {
     [canWrite, filtered, t],
   );
 
+  const selectedTargets = useCallback((): BookmarkInstance[] => {
+    if (selectedIds.size > 0) {
+      return filtered.filter((b) => selectedIds.has(b.uuid));
+    }
+    return focused ? [focused] : [];
+  }, [selectedIds, filtered, focused]);
+
+  const openEditForSelection = useCallback(() => {
+    if (!canWrite) {
+      toast.error(t("notifications.tokenRequired"));
+      return;
+    }
+    const targets = selectedTargets();
+    if (targets.length === 0) return;
+    if (targets.length === 1) {
+      const idx = filtered.findIndex((b) => b.uuid === targets[0]!.uuid);
+      if (idx >= 0) setFocusedIndex(idx);
+      setEditOpen(true);
+      return;
+    }
+    setBulkEditOpen(true);
+  }, [canWrite, selectedTargets, filtered, t]);
+
   const shortcutItems: ShortcutItem[] = useMemo(
     () => [
       { keys: ["/", "⌘K"], label: ts("focusSearch") },
@@ -402,6 +441,7 @@ export function CollectionPage() {
           handler: () => {
             setAddOpen(false);
             setEditOpen(false);
+            setBulkEditOpen(false);
             setHelpOpen(false);
             setTokenOpen(false);
             setImportExportOpen(false);
@@ -497,26 +537,11 @@ export function CollectionPage() {
       },
       {
         key: "e",
-        handler: () => {
-          if (!focused) return;
-          if (!canWrite) {
-            toast.error(t("notifications.tokenRequired"));
-            return;
-          }
-          setEditOpen(true);
-        },
+        handler: () => openEditForSelection(),
       },
       {
         key: "d",
-        handler: () => {
-          const targets =
-            selectedIds.size > 0
-              ? filtered.filter((b) => selectedIds.has(b.uuid))
-              : focused
-                ? [focused]
-                : [];
-          openDeleteFor(targets);
-        },
+        handler: () => openDeleteFor(selectedTargets()),
       },
       {
         key: "Escape",
@@ -575,9 +600,9 @@ export function CollectionPage() {
     focusedIndex,
     toggleId,
     selectAllFiltered,
-    selectedIds,
-    filtered,
     openDeleteFor,
+    openEditForSelection,
+    selectedTargets,
     t,
     query,
     setQuery,
@@ -800,6 +825,17 @@ export function CollectionPage() {
               </Button>
               <Button
                 size="sm"
+                variant="outline"
+                className="h-7"
+                disabled={!canWrite}
+                onClick={() => openEditForSelection()}
+              >
+                <Pencil className="mr-1 h-3.5 w-3.5" />
+                {ts("editSelected")}
+                <kbd className="ml-1.5">e</kbd>
+              </Button>
+              <Button
+                size="sm"
                 variant="destructive"
                 className="ml-auto h-7"
                 disabled={!canWrite}
@@ -911,6 +947,15 @@ export function CollectionPage() {
         open={editOpen}
         onOpenChange={setEditOpen}
         onBookmarkUpdated={onBookmarkUpdated}
+      />
+      <DialogBulkEdit
+        mark={mark}
+        bookmarks={filtered.filter((b) => selectedIds.has(b.uuid))}
+        categories={categories}
+        writeToken={writeToken}
+        open={bulkEditOpen}
+        onOpenChange={setBulkEditOpen}
+        onBookmarksUpdated={onBookmarksUpdated}
       />
       <DialogDelete
         mark={mark}

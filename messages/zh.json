@@ -237,6 +237,34 @@
       "expandNav": "展开导航",
       "collapseNav": "折叠导航",
       "jumpToCategory": "跳转到{category}分类"
+    },
+    "BulkEdit": {
+      "title": "批量编辑",
+      "description": "对选中的 {count} 个书签应用修改。「保持不变」的字段不会改动。",
+      "category": "分类",
+      "categoryKeep": "保持各自分类",
+      "categorySet": "全部设为…",
+      "newCategory": "新建分类",
+      "newCategoryPlaceholder": "分类名称",
+      "backToCategories": "返回",
+      "descriptionField": "描述",
+      "descKeep": "保持各自描述",
+      "descSet": "全部替换为…",
+      "descAppend": "追加到每条…",
+      "descClear": "清空全部描述",
+      "descSetPlaceholder": "新描述",
+      "descAppendPlaceholder": "要追加的文字",
+      "cancel": "取消",
+      "apply": "应用到 {count} 项",
+      "success": "已更新 {count} 个书签",
+      "noChanges": "没有要改的字段 — 请选择一项修改",
+      "errors": {
+        "tokenRequired": "需要 write token",
+        "categoryRequired": "请填写分类",
+        "categoryTooLong": "分类过长",
+        "partialFailed": "{count} 个书签更新失败",
+        "failed": "批量编辑失败"
+      }
     }
   },
   "Notifications": {
@@ -282,7 +310,9 @@
     "selectAll": "全选（当前列表）",
     "selectedCount": "已选 {count} 项",
     "clearSelection": "清除选择",
-    "deleteSelected": "删除"
+    "deleteSelected": "删除",
+    "editSelected": "编辑",
+    "bulkEdit": "批量编辑（多选时）"
   },
   "TokenManager": {
     "title": "写入令牌",

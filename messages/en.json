@@ -237,6 +237,34 @@
       "expandNav": "Expand Navigation",
       "collapseNav": "Collapse Navigation",
       "jumpToCategory": "Jump to {category}"
+    },
+    "BulkEdit": {
+      "title": "Bulk edit",
+      "description": "Apply changes to {count} selected bookmarks. Fields set to “keep” are left unchanged.",
+      "category": "Category",
+      "categoryKeep": "Keep each bookmark’s category",
+      "categorySet": "Set all to…",
+      "newCategory": "New category",
+      "newCategoryPlaceholder": "Category name",
+      "backToCategories": "Back",
+      "descriptionField": "Description",
+      "descKeep": "Keep each description",
+      "descSet": "Replace all with…",
+      "descAppend": "Append to each…",
+      "descClear": "Clear all descriptions",
+      "descSetPlaceholder": "New description",
+      "descAppendPlaceholder": "Text to append",
+      "cancel": "Cancel",
+      "apply": "Apply to {count}",
+      "success": "Updated {count} bookmarks",
+      "noChanges": "Nothing to change — pick a field to update",
+      "errors": {
+        "tokenRequired": "Write token required",
+        "categoryRequired": "Category is required",
+        "categoryTooLong": "Category is too long",
+        "partialFailed": "Failed to update {count} bookmarks",
+        "failed": "Bulk edit failed"
+      }
     }
   },
   "Notifications": {
@@ -282,7 +310,9 @@
     "selectAll": "Select all (filtered)",
     "selectedCount": "{count} selected",
     "clearSelection": "Clear selection",
-    "deleteSelected": "Delete"
+    "deleteSelected": "Delete",
+    "editSelected": "Edit",
+    "bulkEdit": "Bulk edit (when multi-selected)"
   },
   "TokenManager": {
     "title": "Write token",
