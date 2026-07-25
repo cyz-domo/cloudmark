@@ -1,4 +1,5 @@
 import { BANNER_DISMISS_PREFIX, TOKEN_STORAGE_PREFIX } from "@/shared/constants";
+import { generateWriteToken } from "@/shared/security";
 import { downloadJson, downloadTextFile } from "./download";
 
 function tokenKey(mark: string): string {
@@ -29,6 +30,18 @@ export function setStoredWriteToken(mark: string, token: string): void {
   } catch {
     // ignore quota / private mode
   }
+}
+
+/**
+ * Return the local write token for `mark`, creating one silently if missing.
+ * Used for unclaimed collections so the first write can claim without a UI step.
+ */
+export function ensureLocalWriteToken(mark: string): string {
+  const existing = getStoredWriteToken(mark);
+  if (existing) return existing;
+  const next = generateWriteToken();
+  setStoredWriteToken(mark, next);
+  return next;
 }
 
 export function clearStoredWriteToken(mark: string): void {

@@ -5,6 +5,7 @@ import {
   importBookmarksSchema,
   insertSchema,
   regenerateTokenSchema,
+  updateCollectionSettingsSchema,
   updateSchema,
 } from "@/shared/schema";
 import {
@@ -14,6 +15,7 @@ import {
   getCollectionPageData,
   importBookmarks,
   regenerateToken,
+  saveCollectionSettings,
   updateBookmarkRecord,
 } from "../services/bookmarks";
 import type { Env } from "../env";
@@ -24,11 +26,15 @@ function jsonError(c: { json: (data: unknown, status?: number) => Response }, me
   return c.json({ error: message }, status);
 }
 
-/** GET /api/collections/:mark */
+/** GET /api/collections/:mark — optional X-Cloudmark-Token for private collections */
 api.get("/collections/:mark", async (c) => {
   const mark = c.req.param("mark");
+  const viewToken =
+    c.req.header("X-Cloudmark-Token") ||
+    c.req.query("token") ||
+    null;
   try {
-    const data = await getCollectionPageData(c.env.DB, mark);
+    const data = await getCollectionPageData(c.env.DB, mark, viewToken);
     return c.json(data);
   } catch (e) {
     console.error(e);
@@ -48,10 +54,31 @@ api.post("/collections/claim", async (c) => {
       c.env.DB,
       parsed.data.mark,
       parsed.data.token,
+      parsed.data.settings,
     );
     return c.json(result);
   } catch (e) {
     return jsonError(c, e instanceof Error ? e.message : "Claim failed", 400);
+  }
+});
+
+/** PUT /api/collections/settings */
+api.put("/collections/settings", async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = updateCollectionSettingsSchema.safeParse(body);
+    if (!parsed.success) {
+      return jsonError(c, parsed.error.errors[0]?.message ?? "Invalid input");
+    }
+    const { mark, token, ...patch } = parsed.data;
+    const settings = await saveCollectionSettings(c.env.DB, mark, token, patch);
+    return c.json({ settings });
+  } catch (e) {
+    return jsonError(
+      c,
+      e instanceof Error ? e.message : "Failed to save settings",
+      400,
+    );
   }
 });
 

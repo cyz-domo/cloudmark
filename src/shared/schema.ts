@@ -70,10 +70,25 @@ export const deleteSchema = z.object({
   token: tokenSchema,
 });
 
+export const collectionSettingsSchema = z.object({
+  redirectAfterSave: z.boolean(),
+  defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH),
+  isPublic: z.boolean(),
+});
+
+export const updateCollectionSettingsSchema = z.object({
+  mark: markSchema,
+  token: tokenSchema,
+  redirectAfterSave: z.boolean().optional(),
+  defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH).optional(),
+  isPublic: z.boolean().optional(),
+});
+
 /** Claim / create a collection with a client-generated write token */
 export const claimSchema = z.object({
   mark: markSchema,
   token: tokenSchema,
+  settings: collectionSettingsSchema.optional(),
 });
 
 /** Regenerate write token for an existing collection (requires current token) */
@@ -107,3 +122,7 @@ export type ClaimSchema = z.infer<typeof claimSchema>;
 export type RegenerateTokenSchema = z.infer<typeof regenerateTokenSchema>;
 export type ImportBookmarksSchema = z.infer<typeof importBookmarksSchema>;
 export type ImportItemSchema = z.infer<typeof importItemSchema>;
+export type CollectionSettingsSchema = z.infer<typeof collectionSettingsSchema>;
+export type UpdateCollectionSettingsSchema = z.infer<
+  typeof updateCollectionSettingsSchema
+>;

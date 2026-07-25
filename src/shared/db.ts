@@ -1,5 +1,9 @@
-import type { BookmarkInstance, BookmarksData } from "./types";
-import { defaultCategory } from "./types";
+import type {
+  BookmarkInstance,
+  BookmarksData,
+  CollectionSettings,
+} from "./types";
+import { DEFAULT_COLLECTION_SETTINGS, defaultCategory } from "./types";
 import { MAX_BOOKMARKS_PER_MARK } from "./constants";
 
 export interface CollectionRow {
@@ -10,6 +14,17 @@ export interface CollectionRow {
   migrated_from_kv: number;
   /** 0 = one-time plaintext token not yet delivered to a client */
   token_delivered: number;
+  redirect_after_save: number;
+  default_category: string;
+  is_public: number;
+}
+
+export function rowToSettings(row: CollectionRow): CollectionSettings {
+  return {
+    redirectAfterSave: row.redirect_after_save !== 0,
+    defaultCategory: row.default_category || DEFAULT_COLLECTION_SETTINGS.defaultCategory,
+    isPublic: row.is_public !== 0,
+  };
 }
 
 export interface BookmarkRow {
@@ -44,7 +59,10 @@ export async function getCollection(
   const row = await db
     .prepare(
       `SELECT mark, write_token_hash, created_at, updated_at, migrated_from_kv,
-              COALESCE(token_delivered, 1) as token_delivered
+              COALESCE(token_delivered, 1) as token_delivered,
+              COALESCE(redirect_after_save, 1) as redirect_after_save,
+              COALESCE(default_category, 'default') as default_category,
+              COALESCE(is_public, 1) as is_public
        FROM collections WHERE mark = ?`,
     )
     .bind(mark)
@@ -94,7 +112,11 @@ export async function createCollection(
   db: D1Database,
   mark: string,
   writeTokenHash: string,
-  options?: { migratedFromKv?: boolean; tokenDelivered?: boolean },
+  options?: {
+    migratedFromKv?: boolean;
+    tokenDelivered?: boolean;
+    settings?: Partial<CollectionSettings>;
+  },
 ): Promise<void> {
   const now = new Date().toISOString();
   // Migrated collections default to token_delivered=0 so the first page open can issue once.
@@ -106,11 +128,16 @@ export async function createCollection(
       : options?.migratedFromKv
         ? 0
         : 1;
+  const settings = {
+    ...DEFAULT_COLLECTION_SETTINGS,
+    ...options?.settings,
+  };
   await db
     .prepare(
       `INSERT INTO collections
-        (mark, write_token_hash, created_at, updated_at, migrated_from_kv, token_delivered)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+        (mark, write_token_hash, created_at, updated_at, migrated_from_kv, token_delivered,
+         redirect_after_save, default_category, is_public)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       mark,
@@ -119,6 +146,34 @@ export async function createCollection(
       now,
       options?.migratedFromKv ? 1 : 0,
       delivered,
+      settings.redirectAfterSave ? 1 : 0,
+      settings.defaultCategory || defaultCategory,
+      settings.isPublic ? 1 : 0,
+    )
+    .run();
+}
+
+export async function updateCollectionSettings(
+  db: D1Database,
+  mark: string,
+  settings: CollectionSettings,
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `UPDATE collections
+       SET redirect_after_save = ?,
+           default_category = ?,
+           is_public = ?,
+           updated_at = ?
+       WHERE mark = ?`,
+    )
+    .bind(
+      settings.redirectAfterSave ? 1 : 0,
+      settings.defaultCategory || defaultCategory,
+      settings.isPublic ? 1 : 0,
+      now,
+      mark,
     )
     .run();
 }

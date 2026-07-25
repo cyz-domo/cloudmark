@@ -1,6 +1,7 @@
 import type {
   BookmarkInstance,
   CollectionPageData,
+  CollectionSettings,
 } from "@/shared/types";
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -15,9 +16,45 @@ async function parseJson<T>(res: Response): Promise<T> {
 
 export async function fetchCollection(
   mark: string,
+  writeToken?: string | null,
 ): Promise<CollectionPageData> {
-  const res = await fetch(`/api/collections/${encodeURIComponent(mark)}`);
+  const headers: HeadersInit = {};
+  if (writeToken) {
+    headers["X-Cloudmark-Token"] = writeToken;
+  }
+  const res = await fetch(`/api/collections/${encodeURIComponent(mark)}`, {
+    headers,
+  });
   return parseJson<CollectionPageData>(res);
+}
+
+export async function claimCollectionApi(input: {
+  mark: string;
+  token: string;
+  settings?: CollectionSettings;
+}): Promise<{ mark: string; created: boolean; settings: CollectionSettings }> {
+  const res = await fetch("/api/collections/claim", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return parseJson(res);
+}
+
+export async function updateCollectionSettingsApi(input: {
+  mark: string;
+  token: string;
+  redirectAfterSave?: boolean;
+  defaultCategory?: string;
+  isPublic?: boolean;
+}): Promise<CollectionSettings> {
+  const res = await fetch("/api/collections/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = await parseJson<{ settings: CollectionSettings }>(res);
+  return data.settings;
 }
 
 export async function createBookmarkApi(input: {

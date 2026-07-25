@@ -14,6 +14,22 @@ export interface BookmarksData {
   bookmarks: BookmarkInstance[];
 }
 
+/** Per-collection preferences */
+export interface CollectionSettings {
+  /** After bookmarklet save, jump to the collection page */
+  redirectAfterSave: boolean;
+  /** Category applied to bookmarklet saves */
+  defaultCategory: string;
+  /** If false, only viewers with the write token can open the collection */
+  isPublic: boolean;
+}
+
+export const DEFAULT_COLLECTION_SETTINGS: CollectionSettings = {
+  redirectAfterSave: true,
+  defaultCategory: "default",
+  isPublic: true,
+};
+
 /**
  * Server payload for the collection page, including optional one-time token issue.
  */
@@ -25,6 +41,10 @@ export interface CollectionPageData {
   issuedWriteToken?: string;
   /** Historical flag: collection was migrated from legacy storage */
   migratedFromKv?: boolean;
+  /** Collection preferences (defaults when collection not yet created) */
+  settings?: CollectionSettings;
+  /** True when collection is private and the request lacked a valid token */
+  privateLocked?: boolean;
 }
 
 export const defaultMark = "default";

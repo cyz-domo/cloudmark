@@ -17,13 +17,21 @@ import {
   Plus,
   Search,
   Pencil,
+  Settings2,
   Trash2,
   Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { BookmarkInstance, BookmarksData } from "@/shared/types";
-import { isDemoMark } from "@/shared/types";
+import type {
+  BookmarkInstance,
+  BookmarksData,
+  CollectionSettings,
+} from "@/shared/types";
+import {
+  DEFAULT_COLLECTION_SETTINGS,
+  isDemoMark,
+} from "@/shared/types";
 import { getBaseUrl, getCategories } from "@/shared/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +43,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/shared/utils";
-import { fetchCollection } from "@/client/lib/api";
-import { getStoredWriteToken } from "@/client/lib/token-store";
+import { claimCollectionApi, fetchCollection } from "@/client/lib/api";
+import {
+  clearStoredWriteToken,
+  ensureLocalWriteToken,
+  getStoredWriteToken,
+  isTokenBackupAcknowledged,
+  setStoredWriteToken,
+} from "@/client/lib/token-store";
 import {
   ALL_CATEGORIES,
   useBookmarkFilter,
@@ -61,7 +75,9 @@ import {
   type ShortcutItem,
 } from "@/client/components/shortcut-help";
 import { TokenManager } from "@/client/components/token-manager";
+import { TokenUnlockForm } from "@/client/components/token-unlock-form";
 import { ImportExportDialog } from "@/client/components/import-export";
+import { CollectionSettingsDialog } from "@/client/components/collection-settings-dialog";
 
 export function CollectionPage() {
   const params = useParams<{ mark: string }>();
@@ -74,9 +90,11 @@ export function CollectionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const t = useTranslations("BookmarksPage");
   const ts = useTranslations("Shortcuts");
+  const tset = useTranslations("CollectionSettings");
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<BookmarksData | null>(null);
+  const [collectionExists, setCollectionExists] = useState(false);
   const [issuedWriteToken, setIssuedWriteToken] = useState<string | undefined>();
   const [migratedFromKv, setMigratedFromKv] = useState(false);
   const [writeToken, setWriteToken] = useState<string | null>(null);
@@ -93,6 +111,11 @@ export function CollectionPage() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [tokenOpen, setTokenOpen] = useState(false);
   const [importExportOpen, setImportExportOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<CollectionSettings>({
+    ...DEFAULT_COLLECTION_SETTINGS,
+  });
+  const [privateLocked, setPrivateLocked] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -124,19 +147,40 @@ export function CollectionPage() {
     deleteOpen ||
     helpOpen ||
     tokenOpen ||
-    importExportOpen;
+    importExportOpen ||
+    settingsOpen;
   const focused = filtered[focusedIndex] ?? null;
+  /** Local token present (may still be wrong until first successful write). */
   const canWrite = Boolean(writeToken) && !isDemoMark(mark);
+  /** Existing collection on another device — need paste, never silent-mint. */
+  const needsWriteUnlock =
+    collectionExists && !canWrite && !isDemoMark(mark) && !privateLocked;
+  /** Brand-new mark: first write claims with the silently minted token. */
+  const isUnclaimed = !collectionExists && !isDemoMark(mark);
 
   const multiCount = selectedIds.size;
 
-  // Load collection
+  // Load collection when mark changes (token read from storage inside)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchCollection(mark)
-      .then((page) => {
+    setPrivateLocked(false);
+    setCollectionExists(false);
+
+    const stored = isDemoMark(mark) ? null : getStoredWriteToken(mark);
+    if (!isDemoMark(mark)) {
+      setWriteToken(stored);
+    } else {
+      setWriteToken(null);
+    }
+
+    void (async () => {
+      try {
+        const page = await fetchCollection(mark, stored);
         if (cancelled) return;
+
+        setCollectionExists(Boolean(page.exists));
+        setSettings(page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS });
         setData(
           page.bookmarksData ?? {
             mark,
@@ -145,27 +189,57 @@ export function CollectionPage() {
         );
         setIssuedWriteToken(page.issuedWriteToken);
         setMigratedFromKv(Boolean(page.migratedFromKv));
-      })
-      .catch((e) => {
+
+        if (page.privateLocked) {
+          // Wrong/missing token on a private collection — force unlock gate.
+          setPrivateLocked(true);
+          setWriteToken(null);
+          return;
+        }
+
+        setPrivateLocked(false);
+
+        if (page.issuedWriteToken) {
+          setStoredWriteToken(mark, page.issuedWriteToken);
+          setWriteToken(page.issuedWriteToken);
+          return;
+        }
+
+        if (page.exists) {
+          // Owned collection: never silent-mint. Verify stored token or require paste.
+          if (!stored) {
+            setWriteToken(null);
+            return;
+          }
+          try {
+            await claimCollectionApi({ mark, token: stored });
+            if (!cancelled) setWriteToken(stored);
+          } catch {
+            // Stale local token from another device/session — drop it.
+            clearStoredWriteToken(mark);
+            if (!cancelled) setWriteToken(null);
+          }
+          return;
+        }
+
+        // Unclaimed mark: ensure a local token so the first write can claim it.
+        if (!isDemoMark(mark)) {
+          setWriteToken(stored || ensureLocalWriteToken(mark));
+        }
+      } catch (e) {
         if (!cancelled) {
           toast.error(e instanceof Error ? e.message : "Failed to load");
           setData({ mark, bookmarks: [] });
+          setPrivateLocked(false);
+          setCollectionExists(false);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [mark]);
-
-  useEffect(() => {
-    if (isDemoMark(mark)) {
-      setWriteToken(null);
-      return;
-    }
-    setWriteToken(getStoredWriteToken(mark));
   }, [mark]);
 
   // URL toast from bookmarklet redirect
@@ -201,9 +275,11 @@ export function CollectionPage() {
 
     // Refresh list after a successful bookmarklet save
     if (status === "success") {
-      void fetchCollection(mark)
+      const token = writeToken ?? getStoredWriteToken(mark);
+      void fetchCollection(mark, token)
         .then((page) => {
           if (page.bookmarksData) setData(page.bookmarksData);
+          if (page.settings) setSettings(page.settings);
         })
         .catch(() => {
           /* ignore refresh errors */
@@ -211,7 +287,7 @@ export function CollectionPage() {
     }
 
     setSearchParams({}, { replace: true });
-  }, [searchParams, setSearchParams, t, mark]);
+  }, [searchParams, setSearchParams, t, mark, writeToken]);
 
   // Clamp focus when filter changes; drop selection entries not in filtered
   useEffect(() => {
@@ -244,16 +320,26 @@ export function CollectionPage() {
     if (!b) return;
     setFocusedIndex(index);
     setAnchorIndex(index);
+    // Always exclusive — plain click never accumulates
     setSelectedIds(new Set([b.uuid]));
   }, [filtered]);
 
+  /** Additive toggle for checkbox / ⌘-click multi-select */
   const toggleId = useCallback((uuid: string, index: number) => {
     setFocusedIndex(index);
-    setAnchorIndex(index);
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(uuid)) next.delete(uuid);
-      else next.add(uuid);
+      if (next.has(uuid)) {
+        next.delete(uuid);
+        // Keep anchor on remaining selection if possible
+        if (next.size === 0) {
+          setAnchorIndex(index);
+        }
+      } else {
+        next.add(uuid);
+        // First item of a multi-select session becomes the range anchor
+        if (prev.size === 0) setAnchorIndex(index);
+      }
       return next;
     });
   }, []);
@@ -284,8 +370,9 @@ export function CollectionPage() {
         let next = i + delta;
         if (next < 0) next = filtered.length - 1;
         if (next >= filtered.length) next = 0;
+
         if (opts?.extend) {
-          // range from anchor to next
+          // Range-select from anchor → multi-select mode
           const from = anchorIndex;
           const start = Math.min(from, next);
           const end = Math.max(from, next);
@@ -297,6 +384,16 @@ export function CollectionPage() {
             }
             return s;
           });
+        } else {
+          // Plain nav:
+          // - single-select mode (0–1 items): cursor carries the selection
+          // - multi-select mode (2+): only move focus, keep the set
+          setSelectedIds((prev) => {
+            if (prev.size > 1) return prev;
+            const b = filtered[next];
+            return b ? new Set([b.uuid]) : prev;
+          });
+          setAnchorIndex(next);
         }
         return next;
       });
@@ -320,7 +417,53 @@ export function CollectionPage() {
 
   const onTokenReady = useCallback((token: string | null) => {
     setWriteToken(token);
+    // Paste/claim paths bind an owned collection to this device.
+    if (token) setCollectionExists(true);
   }, []);
+
+  const applyCollectionPage = useCallback(
+    (page: Awaited<ReturnType<typeof fetchCollection>>, token: string | null) => {
+      setCollectionExists(Boolean(page.exists));
+      setPrivateLocked(Boolean(page.privateLocked));
+      setSettings(page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS });
+      setData(page.bookmarksData ?? { mark, bookmarks: [] });
+      setIssuedWriteToken(page.issuedWriteToken);
+      setMigratedFromKv(Boolean(page.migratedFromKv));
+      if (page.issuedWriteToken) {
+        setStoredWriteToken(mark, page.issuedWriteToken);
+        setWriteToken(page.issuedWriteToken);
+      } else if (token) {
+        setWriteToken(token);
+      }
+    },
+    [mark],
+  );
+
+  /** Private gate + public attach: verify token then enable this device. */
+  const unlockWithToken = useCallback(
+    async (token: string) => {
+      if (privateLocked || collectionExists) {
+        // Existing collection: verify ownership via claim (no-op if already owner).
+        // For private, also re-fetch bookmarks with the token.
+        try {
+          await claimCollectionApi({ mark, token });
+        } catch {
+          // claim fails when token mismatches an existing collection
+          throw new Error(tset("privateInvalid"));
+        }
+        const page = await fetchCollection(mark, token);
+        if (page.privateLocked) {
+          throw new Error(tset("privateInvalid"));
+        }
+        applyCollectionPage(page, token);
+        return;
+      }
+      // Should not reach for unclaimed — those use silent mint.
+      setStoredWriteToken(mark, token);
+      setWriteToken(token);
+    },
+    [privateLocked, collectionExists, mark, tset, applyCollectionPage],
+  );
 
   const onImported = useCallback((newOnes: BookmarkInstance[]) => {
     if (newOnes.length === 0) return;
@@ -335,12 +478,27 @@ export function CollectionPage() {
     });
   }, [mark]);
 
-  const onBookmarkAdded = useCallback((bookmark: BookmarkInstance) => {
-    setData((prev) => {
-      if (!prev) return { mark, bookmarks: [bookmark] };
-      return { ...prev, bookmarks: [...prev.bookmarks, bookmark] };
-    });
-  }, [mark]);
+  const onBookmarkAdded = useCallback(
+    (bookmark: BookmarkInstance) => {
+      const wasUnclaimed = !collectionExists;
+      setData((prev) => {
+        if (!prev) return { mark, bookmarks: [bookmark] };
+        return { ...prev, bookmarks: [...prev.bookmarks, bookmark] };
+      });
+      if (wasUnclaimed) {
+        setCollectionExists(true);
+        if (!isTokenBackupAcknowledged(mark)) {
+          toast.message(t("backupAfterClaim"), {
+            action: {
+              label: t("tokenManager"),
+              onClick: () => setTokenOpen(true),
+            },
+          });
+        }
+      }
+    },
+    [mark, collectionExists, t],
+  );
 
   const onBookmarkUpdated = useCallback((bookmark: BookmarkInstance) => {
     setData((prev) => {
@@ -439,6 +597,7 @@ export function CollectionPage() {
       { keys: ["0–9"], label: ts("filterCategory") },
       { keys: ["Esc"], label: ts("clear") },
       { keys: ["?"], label: ts("help") },
+      { keys: ["⇧T"], label: ts("theme") },
     ],
     [ts],
   );
@@ -630,15 +789,43 @@ export function CollectionPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center py-24 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        {t("loading")}
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border/70 bg-card/50 shadow-elevated">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        </div>
+        <span className="text-sm">{t("loading")}</span>
+      </div>
+    );
+  }
+
+  if (privateLocked) {
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-4 py-16">
+        <div className="w-full rounded-2xl border border-border/70 bg-card/60 p-6 shadow-elevated backdrop-blur-sm">
+          <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+            <KeyRound className="h-5 w-5" />
+          </div>
+          <h1 className="font-display text-lg font-semibold tracking-tight">
+            {tset("privateTitle")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {tset("privateDescription")}
+          </p>
+          <TokenUnlockForm
+            className="mt-4"
+            mark={mark}
+            initialToken={getStoredWriteToken(mark) || ""}
+            submitLabel={tset("privateUnlock")}
+            autoFocus
+            onUnlock={unlockWithToken}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-3 py-3 sm:px-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-3 py-4 sm:px-4 sm:py-5">
       <DemoBanner mark={mark} />
       {!isDemoMark(mark) && (
         <MigrationBanner
@@ -647,16 +834,41 @@ export function CollectionPage() {
           issuedWriteToken={issuedWriteToken}
           migratedFromKv={migratedFromKv}
           onTokenReady={onTokenReady}
-          onOpenTokenManager={() => setTokenOpen(true)}
         />
       )}
 
+      {needsWriteUnlock && (
+        <div className="mb-3 rounded-xl border border-border/70 bg-card/60 px-3 py-3 shadow-sm">
+          <div className="mb-2 flex items-start gap-2">
+            <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div>
+              <p className="text-sm font-medium leading-tight">
+                {t("needsTokenTitle")}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {t("needsTokenDescription")}
+              </p>
+            </div>
+          </div>
+          <TokenUnlockForm
+            mark={mark}
+            compact
+            submitLabel={tset("privateUnlock")}
+            onUnlock={unlockWithToken}
+          />
+        </div>
+      )}
+
+      {isUnclaimed && canWrite && (
+        <p className="mb-3 text-2xs text-muted-foreground">{t("unclaimedHint")}</p>
+      )}
+
       {/* Header row */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold tracking-tight">
+          <h1 className="truncate font-display text-xl font-semibold tracking-tight sm:text-2xl">
             {t("title")}
-            <span className="ml-2 font-normal text-muted-foreground">
+            <span className="ml-2 font-mono text-base font-normal text-muted-foreground">
               /{mark}
             </span>
           </h1>
@@ -677,7 +889,7 @@ export function CollectionPage() {
             <Button
               size="sm"
               variant="outline"
-              className="h-8"
+              className="h-8 rounded-full"
               onClick={() => setTokenOpen(true)}
               title={t("tokenManager")}
             >
@@ -685,10 +897,23 @@ export function CollectionPage() {
               <span className="hidden sm:inline">{t("tokenManager")}</span>
             </Button>
           )}
+          {!isDemoMark(mark) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-full"
+              disabled={!canWrite}
+              onClick={() => setSettingsOpen(true)}
+              title={tset("button")}
+            >
+              <Settings2 className="mr-1 h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{tset("button")}</span>
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
-            className="h-8"
+            className="h-8 rounded-full"
             onClick={() => setImportExportOpen(true)}
             title={t("importExport")}
           >
@@ -703,10 +928,10 @@ export function CollectionPage() {
           />
           <Button
             size="sm"
-            className="h-8"
+            className="h-8 rounded-full shadow-glow"
             disabled={!canWrite}
             onClick={() => setAddOpen(true)}
-            title={!canWrite ? t("notifications.tokenRequired") : "n"}
+            title={!canWrite ? t("needsTokenTitle") : undefined}
           >
             <Plus className="mr-1 h-3.5 w-3.5" />
             {t("addBookmark")}
@@ -719,12 +944,12 @@ export function CollectionPage() {
 
       <div className="flex min-h-0 flex-1 gap-3">
         {/* Category sidebar */}
-        <aside className="hidden w-44 shrink-0 flex-col md:flex">
-          <div className="mb-1.5 flex items-center gap-1.5 px-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+        <aside className="hidden w-48 shrink-0 flex-col md:flex">
+          <div className="mb-2 flex items-center gap-1.5 px-2.5 text-2xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <Folder className="h-3 w-3" />
             {ts("categories")}
           </div>
-          <nav className="space-y-0.5">
+          <nav className="space-y-1 rounded-xl border border-border/60 bg-card/50 p-1.5 shadow-sm backdrop-blur-sm">
             <CategoryButton
               active={category === ALL_CATEGORIES}
               label={ts("all")}
@@ -746,9 +971,9 @@ export function CollectionPage() {
         </aside>
 
         {/* Main list */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-md border border-border/80 bg-card/40">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/70 bg-card/50 shadow-elevated backdrop-blur-sm">
           {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-2 border-b border-border/80 bg-muted/30 px-2 py-1.5">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/70 bg-muted/25 px-2.5 py-2">
             <div className="relative min-w-[12rem] flex-1">
               <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -756,7 +981,7 @@ export function CollectionPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={ts("searchPlaceholder")}
-                className="h-8 border-border/60 bg-background pl-7 pr-16 text-sm"
+                className="h-8 rounded-lg border-border/60 bg-background/80 pl-7 pr-16 text-sm"
               />
               <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-2xs text-muted-foreground">
                 <kbd>/</kbd>
@@ -824,8 +1049,8 @@ export function CollectionPage() {
           </div>
 
           {/* Bulk selection bar */}
-          {multiCount > 0 && (
-            <div className="flex flex-wrap items-center gap-2 border-b border-primary/20 bg-primary/5 px-2 py-1.5 text-xs">
+          {multiCount > 1 && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-primary/25 bg-primary/8 px-2.5 py-2 text-xs">
               <span className="font-medium">
                 {ts("selectedCount", { count: multiCount })}
               </span>
@@ -879,7 +1104,7 @@ export function CollectionPage() {
           {/* Column headers — click to sort; same grid as BookmarkRow */}
           <div
             className={cn(
-              "hidden items-center gap-x-3 border-b border-border/60 bg-muted/20 px-3 py-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground sm:grid",
+              "hidden items-center gap-x-3 border-b border-border/60 bg-muted/15 px-3 py-1.5 text-2xs font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:grid",
               BOOKMARK_ROW_GRID,
             )}
           >
@@ -920,21 +1145,28 @@ export function CollectionPage() {
             className="min-h-0 flex-1 overflow-y-auto"
           >
             {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
-                <Search className="h-8 w-8 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col items-center justify-center gap-4 px-4 py-20 text-center">
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border/70 bg-muted/40 text-muted-foreground/70">
+                  <Search className="h-6 w-6" />
+                </div>
+                <p className="max-w-xs text-sm text-muted-foreground">
                   {bookmarks.length === 0 ? t("noBookmarks") : ts("noResults")}
                 </p>
                 {bookmarks.length === 0 && canWrite && (
-                  <Button size="sm" onClick={() => setAddOpen(true)}>
+                  <Button size="sm" className="rounded-full" onClick={() => setAddOpen(true)}>
                     <Plus className="mr-1 h-3.5 w-3.5" />
                     {t("addFirstBookmark")}
                   </Button>
                 )}
-                {bookmarks.length === 0 && !canWrite && (
-                  <Button asChild size="sm" variant="outline">
+                {bookmarks.length === 0 && !canWrite && !needsWriteUnlock && (
+                  <Button asChild size="sm" variant="outline" className="rounded-full">
                     <Link to="/doc">{t("createOwn")}</Link>
                   </Button>
+                )}
+                {bookmarks.length === 0 && needsWriteUnlock && (
+                  <p className="max-w-xs text-2xs text-muted-foreground">
+                    {t("needsTokenDescription")}
+                  </p>
                 )}
               </div>
             ) : (
@@ -946,11 +1178,15 @@ export function CollectionPage() {
                   focused={index === focusedIndex}
                   canWrite={canWrite}
                   onSelect={(e) => {
+                    // Multi-select only with explicit modifiers / checkbox.
+                    // Plain click is always exclusive single-select.
                     if (e.shiftKey) {
+                      e.preventDefault();
                       selectRange(index);
                       return;
                     }
                     if (e.metaKey || e.ctrlKey) {
+                      e.preventDefault();
                       toggleId(bookmark.uuid, index);
                       return;
                     }
@@ -1038,6 +1274,16 @@ export function CollectionPage() {
         onOpenChange={setImportExportOpen}
         onImported={onImported}
       />
+      {!isDemoMark(mark) && (
+        <CollectionSettingsDialog
+          mark={mark}
+          writeToken={writeToken}
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          settings={settings}
+          onSaved={setSettings}
+        />
+      )}
     </div>
   );
 }
@@ -1059,17 +1305,41 @@ function CategoryButton({
     <button
       type="button"
       onClick={onClick}
+      aria-current={active ? "true" : undefined}
       className={cn(
-        "flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs transition-colors",
+        "group/cat flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "bg-accent font-medium text-accent-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          ? "bg-primary font-semibold text-primary-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-muted/90 hover:text-foreground",
       )}
     >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+          active ? "bg-primary-foreground" : "bg-border group-hover/cat:bg-muted-foreground/50",
+        )}
+        aria-hidden
+      />
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="tabular-nums text-2xs opacity-70">{count}</span>
+      <span
+        className={cn(
+          "rounded-md px-1.5 py-0.5 tabular-nums text-2xs font-medium",
+          active
+            ? "bg-primary-foreground/15 text-primary-foreground"
+            : "bg-muted text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
       {shortcut ? (
-        <kbd className="ml-0.5 opacity-60">{shortcut}</kbd>
+        <kbd
+          className={cn(
+            "ml-0.5 hidden opacity-80 lg:inline-flex",
+            active && "border-primary-foreground/25 bg-primary-foreground/10 text-primary-foreground",
+          )}
+        >
+          {shortcut}
+        </kbd>
       ) : null}
     </button>
   );

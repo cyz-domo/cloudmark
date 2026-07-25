@@ -13,7 +13,9 @@ import {
   insertBookmarksBatch,
   markTokenDelivered,
   rotateCollectionToken,
+  rowToSettings,
   updateBookmark,
+  updateCollectionSettings,
   updateCollectionToken,
 } from "@/shared/db";
 import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
@@ -28,6 +30,8 @@ import {
 import {
   type BookmarkInstance,
   type CollectionPageData,
+  type CollectionSettings,
+  DEFAULT_COLLECTION_SETTINGS,
   defaultCategory,
   isDemoMark,
 } from "@/shared/types";
@@ -54,11 +58,13 @@ function isAcceptableMark(mark: string): boolean {
 export async function getCollectionPageData(
   db: D1Database,
   mark: string,
+  viewToken?: string | null,
 ): Promise<CollectionPageData> {
   if (isDemoMark(mark)) {
     return {
       bookmarksData: DEMO_BOOKMARKS_DATA,
       exists: true,
+      settings: { ...DEFAULT_COLLECTION_SETTINGS },
     };
   }
 
@@ -68,6 +74,24 @@ export async function getCollectionPageData(
 
   const existing = await getCollection(db, mark);
   if (existing) {
+    const settings = rowToSettings(existing);
+
+    // Private collection: require a valid write token to view bookmarks
+    if (!settings.isPublic) {
+      const ok =
+        Boolean(viewToken) &&
+        (await verifyWriteToken(viewToken!, existing.write_token_hash));
+      if (!ok) {
+        return {
+          bookmarksData: null,
+          exists: true,
+          settings,
+          privateLocked: true,
+          migratedFromKv: existing.migrated_from_kv === 1,
+        };
+      }
+    }
+
     const bookmarksData = await getBookmarksData(db, mark);
     // Collections with token_delivered=0: issue write token once on first open
     if (existing.token_delivered === 0) {
@@ -78,6 +102,7 @@ export async function getCollectionPageData(
       return {
         bookmarksData,
         exists: true,
+        settings,
         issuedWriteToken,
         migratedFromKv: existing.migrated_from_kv === 1,
       };
@@ -85,6 +110,7 @@ export async function getCollectionPageData(
     return {
       bookmarksData,
       exists: true,
+      settings,
       migratedFromKv: existing.migrated_from_kv === 1,
     };
   }
@@ -94,7 +120,11 @@ export async function getCollectionPageData(
     return { bookmarksData: null, exists: false };
   }
 
-  return { bookmarksData: null, exists: false };
+  return {
+    bookmarksData: null,
+    exists: false,
+    settings: { ...DEFAULT_COLLECTION_SETTINGS },
+  };
 }
 
 async function requireWriteAccess(
@@ -132,7 +162,8 @@ export async function claimCollection(
   db: D1Database,
   mark: string,
   token: string,
-): Promise<{ mark: string; created: boolean }> {
+  settings?: Partial<CollectionSettings>,
+): Promise<{ mark: string; created: boolean; settings: CollectionSettings }> {
   if (isDemoMark(mark)) {
     throw new Error("Demo mode");
   }
@@ -148,12 +179,17 @@ export async function claimCollection(
     if (!ok) {
       throw new Error("Collection already exists with a different write token");
     }
-    return { mark, created: false };
+    if (settings) {
+      const next = { ...rowToSettings(existing), ...settings };
+      await updateCollectionSettings(db, mark, next);
+      return { mark, created: false, settings: next };
+    }
+    return { mark, created: false, settings: rowToSettings(existing) };
   }
 
   const writeTokenHash = await hashWriteToken(token);
   try {
-    await createCollection(db, mark, writeTokenHash);
+    await createCollection(db, mark, writeTokenHash, { settings });
   } catch {
     const raced = await getCollection(db, mark);
     if (!raced) {
@@ -163,10 +199,39 @@ export async function claimCollection(
     if (!ok) {
       throw new Error("Collection already exists with a different write token");
     }
-    return { mark, created: false };
+    return { mark, created: false, settings: rowToSettings(raced) };
   }
 
-  return { mark, created: true };
+  const created = await getCollection(db, mark);
+  return {
+    mark,
+    created: true,
+    settings: created
+      ? rowToSettings(created)
+      : { ...DEFAULT_COLLECTION_SETTINGS, ...settings },
+  };
+}
+
+export async function saveCollectionSettings(
+  db: D1Database,
+  mark: string,
+  token: string,
+  patch: Partial<CollectionSettings>,
+): Promise<CollectionSettings> {
+  await requireWriteAccess(db, mark, token, `settings:${mark}`);
+  const existing = await getCollection(db, mark);
+  if (!existing) {
+    throw new Error("Collection not found");
+  }
+  const next: CollectionSettings = {
+    ...rowToSettings(existing),
+    ...patch,
+    defaultCategory:
+      (patch.defaultCategory ?? rowToSettings(existing).defaultCategory).trim() ||
+      defaultCategory,
+  };
+  await updateCollectionSettings(db, mark, next);
+  return next;
 }
 
 export async function regenerateToken(
@@ -189,11 +254,12 @@ export async function createBookmark(
     url: string;
     title: string;
     description?: string;
-    category: string;
+    /** When omitted, uses the collection default category */
+    category?: string;
     favicon?: string;
   },
 ): Promise<BookmarkInstance> {
-  const { mark, token, url, title, description, category, favicon: customFavicon } =
+  const { mark, token, url, title, description, favicon: customFavicon } =
     input;
   if (isDemoMark(mark)) {
     throw new Error("Demo mode");
@@ -215,6 +281,7 @@ export async function createBookmark(
     const writeTokenHash = await hashWriteToken(token);
     try {
       await createCollection(db, mark, writeTokenHash);
+      collection = await getCollection(db, mark);
     } catch {
       collection = await getCollection(db, mark);
       if (!collection) {
@@ -239,6 +306,14 @@ export async function createBookmark(
     throw new Error(`Bookmark ${title} (${url}) already exists`);
   }
 
+  const settings = collection
+    ? rowToSettings(collection)
+    : DEFAULT_COLLECTION_SETTINGS;
+  const category =
+    (input.category && input.category.trim()) ||
+    settings.defaultCategory ||
+    defaultCategory;
+
   const uuid = crypto.randomUUID();
   const favicon =
     customFavicon && customFavicon.length > 0
@@ -250,7 +325,7 @@ export async function createBookmark(
     url,
     title,
     description,
-    category: category || defaultCategory,
+    category,
     favicon,
     createdAt: now,
     modifiedAt: now,

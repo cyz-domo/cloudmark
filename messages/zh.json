@@ -1,115 +1,94 @@
 {
   "HomePage": {
-    "quickstart": "快速入门",
-    "title": "你的通用书签管理器",
-    "description": "一键保存和整理书签。随时随地访问。",
+    "quickstart": "开始使用",
+    "demo": "试用演示",
+    "featuresLabel": "功能",
+    "title": "简单的云端书签管理",
+    "description": "一键保存网页，任意设备打开。无需注册账号。",
+    "cta": {
+      "title": "创建你的收藏",
+      "description": "取个名字，安装书签按钮，就可以开始保存。",
+      "button": "开始使用"
+    },
     "features": {
       "save": {
-        "title": "一键收藏",
-        "desc": "通过简单的拖拽安装，一键保存任何网页到您的收藏夹。"
+        "title": "一键保存",
+        "desc": "把书签按钮拖到浏览器书签栏，浏览时点一下即可收藏当前页面。"
       },
       "categorize": {
-        "title": "智能分类",
-        "desc": "自动对书签进行分类，让您的收藏更有条理。"
+        "title": "分类整理",
+        "desc": "给书签加分类，列表变长时也能快速筛选。"
       },
       "access": {
-        "title": "随处访问",
-        "desc": "跨设备同步，随时随地访问您的书签收藏。"
+        "title": "随处打开",
+        "desc": "收藏就是一个链接，手机、电脑、别的浏览器都能访问。"
       },
-      "share": {
-        "title": "分享协作",
-        "desc": "轻松与他人分享书签集合，协同整理资源。"
+      "private": {
+        "title": "写入令牌",
+        "desc": "分享链接可查看；只有持有写入令牌才能增删改。"
       }
     }
   },
   "NotFoundPage": {
-    "title": "404: 无法找到此页面。",
+    "title": "页面不存在",
     "errorCode": "404",
-    "description": "无法找到此页面。"
+    "description": "页面不存在，或收藏名称输入有误。",
+    "home": "返回首页"
+  },
+  "Theme": {
+    "toggle": "主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统",
+    "cycleHint": "Shift+T 切换主题"
   },
   "DocPage": {
-    "title": "Cloudmark 快速入门",
-    "description": "跨设备、跨浏览器的云端书签管理工具",
+    "title": "快速开始",
+    "description": "四步完成设置，点开每一步即可。",
     "loading": "加载中...",
-    "intro": {
-      "title": "什么是 Cloudmark？",
-      "description": "Cloudmark 是一个基于云的书签收集工具，允许您一键保存和组织网页书签，并从任何设备访问。写操作需要密钥 write token 以保证安全。",
-      "features": {
-        "title": "主要特点",
-        "oneClick": "一键保存当前浏览页面",
-        "cloud": "Cloudflare D1 云端存储，跨设备访问",
-        "categories": "按分类整理和筛选书签",
-        "custom": "可自定义的书签集合",
-        "sorting": "Write token 保护集合写入",
-        "multilingual": "支持多语言界面"
-      }
-    },
     "setup": {
-      "title": "设置您的 Bookmarklet",
-      "markName": {
-        "title": "设置书签的名称",
-        "placeholder": "为您的书签 ID 取个名字",
-        "description": "此名称将用于您的书签集合，只能包含字母、数字、下划线和连字符（4–64 个字符）。",
-        "button": "随机生成"
-      },
-      "writeToken": {
-        "title": "您的写入令牌（Write Token）",
-        "description": "所有写操作（添加、编辑、删除）都需要此密钥。它只保存在您的浏览器中，并嵌入到 bookmarklet 里。请妥善保管，不要公开分享。",
-        "copy": "复制",
-        "regenerate": "重新生成",
-        "hint": "令牌会自动保存在当前浏览器。若需在其他设备使用，请先复制保存。",
-        "regenerateConfirm": "重新生成令牌？旧令牌只会在你已复制的情况下保留。",
-        "backupHint": "关闭页面前请先下载备份 — 服务器无法找回明文 token。"
-      },
-      "bookmarklet": {
-        "title": "安装书签工具",
-        "saveButton": "保存到 {mark}",
-        "openButton": "打开 {mark} 书签",
-        "dragTip": "拖动到书签栏",
-        "description": "将上面的按钮拖动到浏览器书签栏。Bookmarklet 已包含 write token，保存时会进行鉴权。"
-      },
-      "code": {
-        "title": "查看 Bookmarklet 代码",
-        "copied": "已复制"
-      }
-    },
-    "usage": {
-      "title": "如何使用 Cloudmark",
+      "next": "继续",
+      "saving": "保存中…",
+      "syncFailed": "无法保存收藏",
+      "claiming": "正在认领集合…",
       "steps": {
-        "setup": {
-          "title": "设置您的 Bookmarklet",
-          "description": "创建书签集合名称和 write token，然后将 bookmarklet 添加到浏览器书签栏。首次成功保存会使用该 token 认领集合。"
-        },
-        "save": {
-          "title": "保存网页到您的集合",
-          "description": "浏览网页时点击书签栏中的 Cloudmark bookmarklet 即可保存。不含 token 的旧版 bookmarklet 将无法使用。"
-        },
-        "access": {
-          "title": "访问您的书签集合",
-          "description": "通过访问 {baseUrl}/{mark} 可以查看和管理您保存的所有书签。写操作需要在该设备上配置 write token。"
-        },
-        "manage": {
-          "title": "整理和管理您的书签",
-          "description": "您可以编辑或删除书签并更改分类。若从旧版迁移，请按页面横幅提示保存新 token 并重新安装 bookmarklet。"
-        }
+        "name": "集合名称",
+        "token": "写入令牌",
+        "settings": "偏好设置",
+        "install": "安装按钮"
+      },
+      "name": {
+        "random": "随机名称",
+        "tooShort": "至少 4 个字符"
+      },
+      "token": {
+        "copy": "复制",
+        "download": "下载备份",
+        "hint": "先备份，再继续。令牌只在本机生成，服务器无法找回。",
+        "mustBackup": "请先复制或下载备份，再继续",
+        "claimed": "集合已认领，令牌已绑定"
+      },
+      "install": {
+        "bookmarksBar": "书签栏",
+        "saveChip": "保存",
+        "dragHint": "把按钮拖到浏览器书签栏",
+        "saveButton": "保存到 {mark}",
+        "dragTip": "将紫色按钮拖到书签栏",
+        "open": "打开 /{mark}",
+        "copyCode": "复制代码"
       }
     },
     "demo": {
-      "title": "想要体验 Cloudmark？",
-      "description": "不需要创建书签集合，直接体验 Cloudmark 的全部功能",
-      "button": "查看演示"
-    },
-    "navigation": {
-      "intro": "简介",
-      "setup": "设置",
-      "usage": "使用方法",
-      "demo": "演示"
+      "title": "先看看？",
+      "description": "打开演示收藏，先体验界面。",
+      "button": "打开演示"
     }
   },
   "Navigation": {
     "quickstart": "快速入门",
     "github": "GitHub",
-    "switchLanguage": "切换语言"
+    "switchLanguage": "切换语言",
+    "skipToContent": "跳到主要内容"
   },
   "BookmarksPage": {
     "title": "书签收藏",
@@ -139,28 +118,23 @@
     },
     "SecurityBanner": {
       "migratedTitle": "集合已迁移 — 请保存写入令牌",
-      "migratedDescription": "您的书签已从旧版 KV 存储迁移到 D1，并生成了新的 write token。请复制令牌并重新安装下方的 bookmarklet，之后可关闭此横幅。",
-      "updateTitle": "安全更新 — 请重新安装 bookmarklet",
-      "updateDescription": "写操作现在需要 write token。请使用下方的新 bookmarklet，以确保一键保存继续可用。",
-      "tokenRequiredTitle": "需要写入令牌",
-      "tokenRequiredDescription": "此集合已受保护。请粘贴 write token，以便在本设备上添加/编辑/删除书签并使用 bookmarklet。",
-      "pasteToken": "粘贴写入令牌",
-      "tokenPlaceholder": "tok_…",
-      "saveToken": "保存令牌",
-      "pasteHint": "若已在其他设备完成迁移，请从那里复制 token。或前往「快速入门」创建新集合。",
-      "or": "或",
-      "generateToken": "生成新的写入令牌",
-      "generateHint": "新集合：在此生成 token，然后添加第一条书签以认领集合。若集合已有所有者，重新生成无法解锁，请粘贴正确的 token。",
+      "migratedDescription": "书签已迁到 D1，并签发了新的 write token。请备份令牌并重新安装 bookmarklet。",
+      "issuedTitle": "请保存写入令牌",
+      "issuedDescription": "服务器刚签发了此集合的 write token。这是唯一一次完整展示，请立即备份。",
       "yourToken": "您的写入令牌",
       "copyToken": "复制",
       "tokenWarning": "持有此令牌的人可以修改您的集合，请勿公开分享。",
-      "newBookmarklet": "新 Bookmarklet（含 token）",
+      "newBookmarklet": "Bookmarklet（含 token）",
       "saveButton": "保存到 {mark}",
-      "dragTip": "拖到书签栏",
       "copyBookmarklet": "复制代码",
-      "bookmarkletHint": "将按钮拖到书签栏，或替换旧的 bookmarklet。不含 token 的旧版将无法写入。",
+      "bookmarkletHint": "拖到书签栏；轮换或重签后请替换旧按钮。",
       "dismiss": "关闭横幅"
     },
+    "needsTokenTitle": "在本设备写入",
+    "needsTokenDescription": "此集合已有所有者。粘贴 write token 后，本机才能增删改。",
+    "unclaimedHint": "新集合：添加第一条书签即完成认领。",
+    "backupAfterClaim": "集合已认领 — 建议立即备份写入令牌",
+    "invalidTokenWrite": "写入令牌无效，请重新粘贴正确令牌",
     "tokenManager": "令牌",
     "importExport": "导入/导出"
   },
@@ -315,6 +289,7 @@
     "filterCategory": "按分类筛选（0 = 全部）",
     "clear": "清除搜索 / 筛选",
     "help": "显示快捷键帮助",
+    "theme": "循环切换主题（系统 / 浅色 / 深色）",
     "helpHint": "快捷键帮助",
     "categories": "分类",
     "all": "全部",
@@ -344,26 +319,33 @@
     "sortUrlAsc": "网址 A–Z",
     "sortUrlDesc": "网址 Z–A"
   },
+  "TokenUnlock": {
+    "placeholder": "tok_…",
+    "submit": "解锁",
+    "invalidToken": "令牌格式无效或不匹配",
+    "invalidRecoveryFile": "无法从该文件读取令牌",
+    "recoveryLoaded": "已从文件加载令牌",
+    "markMismatch": "文件对应 mark「{fileMark}」，当前是「{mark}」",
+    "loadRecoveryFile": "加载恢复文件"
+  },
   "TokenManager": {
     "title": "写入令牌",
-    "description": "管理集合 {mark} 的 write token。丢失后将无法在本设备写入该集合。",
-    "currentToken": "本设备上的令牌",
-    "backupMissing": "尚未确认备份",
+    "description": "{mark} · 丢失后本设备将无法写入",
+    "currentToken": "本设备令牌",
+    "backupMissing": "未备份",
     "reveal": "显示",
     "hide": "隐藏",
     "tokenWarning": "持有此令牌即可修改集合，请勿公开分享。",
+    "tokenWarningShort": "请勿公开分享",
     "downloadBackup": "下载备份",
     "backupDownloaded": "令牌备份已下载",
-    "rotate": "轮换令牌",
-    "clearLocal": "从本设备移除",
-    "bookmarklet": "Bookmarklet（含 token）",
+    "rotate": "轮换",
+    "clearLocal": "移除",
+    "bookmarklet": "Bookmarklet",
     "dragBookmarklet": "保存到 {mark}",
-    "bookmarkletHint": "拖到书签栏；轮换后请在所有设备上替换旧 bookmarklet。",
-    "noToken": "本设备没有 write token。请从其他设备粘贴，或为新集合生成一个。",
+    "bookmarkletHint": "拖到书签栏；轮换后需替换",
+    "noToken": "本设备尚无令牌。请从其他设备粘贴，或加载备份文件。",
     "pasteRestore": "粘贴 / 恢复",
-    "generateNew": "生成令牌",
-    "generateLocal": "生成（仅本地）",
-    "generateLocalHint": "本地生成不会解锁你未拥有的集合。要安全更换服务器令牌，请使用「轮换」。",
     "pasteDescription": "粘贴 write token，或加载此前保存的恢复文件。",
     "tokenPlaceholder": "tok_…",
     "loadRecoveryFile": "加载恢复文件",
@@ -376,13 +358,11 @@
     "markMismatch": "文件对应 mark「{fileMark}」，当前页面是「{mark}」",
     "copied": "已复制",
     "mustBackup": "请先确认已备份令牌",
-    "claimHint": "添加书签或使用 bookmarklet，用此 token 认领新集合。",
     "needCurrentToken": "轮换前需要当前令牌",
     "rotateSuccess": "服务器令牌已轮换",
     "rotateFailed": "轮换失败",
     "reinstallBookmarklet": "请重新安装 bookmarklet — 旧版已失效",
     "cleared": "已从本设备移除令牌（服务器不变）",
-    "generateLocalWarning": "这只会在本地保存新令牌，不会修改服务器。若集合已有所有者，写入会失败，请粘贴正确 token。",
     "generateNewWarning": "继续前请务必保存此令牌。丢失后 Cloudmark 无法帮你找回。",
     "confirmSave": "已保存 — 继续",
     "rotateTitle": "轮换 write token？",
@@ -422,5 +402,26 @@
     "importAction": "导入到集合",
     "clear": "清除",
     "tokenRequired": "导入需要 write token"
+  },
+  "CollectionSettings": {
+    "title": "集合设置",
+    "description": "/{mark} 的偏好",
+    "redirectAfterSave": "保存后打开 Cloudmark",
+    "redirectAfterSaveHint": "关闭后，书签按钮只显示“已保存”，不再跳转到本页。",
+    "isPublic": "允许他人查看",
+    "isPublicHint": "关闭后，只有持有写入令牌的人能打开此集合。",
+    "defaultCategory": "默认分类",
+    "defaultCategoryHint": "使用书签按钮保存时采用此分类。",
+    "save": "保存",
+    "saving": "保存中…",
+    "cancel": "取消",
+    "saved": "设置已保存",
+    "saveFailed": "无法保存设置",
+    "tokenRequired": "需要写入令牌",
+    "button": "设置",
+    "privateTitle": "此集合为私密",
+    "privateDescription": "粘贴写入令牌后，可在本设备查看并编辑书签。",
+    "privateUnlock": "解锁",
+    "privateInvalid": "令牌与此集合不匹配"
   }
 }

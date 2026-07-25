@@ -48,37 +48,43 @@ export const BookmarkRow = memo(function BookmarkRow({
       role="option"
       aria-selected={selected}
       tabIndex={-1}
-      data-selected={selected}
-      data-focused={focused}
+      data-selected={selected || undefined}
+      data-focused={focused || undefined}
       data-uuid={bookmark.uuid}
       className={cn(
-        "bookmark-row group relative grid cursor-pointer items-center gap-x-2 border-b border-border/60 px-2 py-2 text-sm transition-all duration-150 sm:gap-x-3 sm:px-3",
+        "bookmark-row group relative grid cursor-pointer items-center gap-x-2 border-b border-border/50 px-2 py-2.5 text-sm sm:gap-x-3 sm:px-3",
         BOOKMARK_ROW_GRID,
-        "hover:bg-muted/60",
-        selected &&
-          "z-[1] bg-primary/8 shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
-        focused && "ring-1 ring-inset ring-primary/40",
-        selected && focused && "bg-primary/12 ring-primary/50",
+        "hover:bg-muted/45",
+        // Selected = membership in selection set (checkbox / multi)
+        selected && "is-selected",
+        // Focused = keyboard/mouse cursor — distinct from selection
+        focused && "is-focused",
       )}
       onClick={onSelect}
-      onDoubleClick={onOpen}
+      onDoubleClick={(e) => {
+        e.preventDefault();
+        onOpen();
+      }}
     >
-      {/* Checkbox */}
+      {/* Checkbox — only control that toggles multi-select without modifiers */}
       <button
         type="button"
         role="checkbox"
         aria-checked={selected}
         aria-label={selected ? t("deselect") : t("select")}
         className={cn(
-          "flex h-4 w-4 shrink-0 items-center justify-center justify-self-center rounded border transition-colors",
+          "flex h-4 w-4 shrink-0 items-center justify-center justify-self-center rounded-[4px] border transition-colors",
           selected
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-muted-foreground/40 bg-background hover:border-primary/60",
+            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+            : "border-muted-foreground/35 bg-background hover:border-primary/55",
+          focused && !selected && "border-primary/50",
         )}
         onClick={(e) => {
           e.stopPropagation();
+          e.preventDefault();
           onToggle();
         }}
+        onDoubleClick={(e) => e.stopPropagation()}
       >
         {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
       </button>
@@ -86,10 +92,12 @@ export const BookmarkRow = memo(function BookmarkRow({
       {/* Favicon / custom icon */}
       <div
         className={cn(
-          "flex h-5 w-5 shrink-0 items-center justify-center justify-self-center overflow-hidden rounded-sm transition-colors",
-          selected || focused
-            ? "bg-primary/15 ring-1 ring-primary/30"
-            : "bg-muted",
+          "flex h-5 w-5 shrink-0 items-center justify-center justify-self-center overflow-hidden rounded-md transition-colors",
+          selected
+            ? "bg-primary/12 ring-1 ring-primary/25"
+            : focused
+              ? "bg-muted ring-1 ring-border"
+              : "bg-muted/80",
         )}
         aria-hidden
       >
@@ -102,13 +110,11 @@ export const BookmarkRow = memo(function BookmarkRow({
       </div>
 
       {/* Title / URL / description stack */}
-      <div className="min-w-0 flex flex-col gap-0.5 py-0.5">
+      <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
         <span
           className={cn(
             "truncate leading-snug",
-            selected || focused
-              ? "font-semibold text-foreground"
-              : "font-medium text-foreground",
+            selected || focused ? "font-semibold text-foreground" : "font-medium text-foreground",
           )}
           title={bookmark.title}
         >
@@ -135,8 +141,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         variant="outline"
         className={cn(
           "hidden max-w-full justify-self-start truncate px-1.5 py-0 text-2xs font-normal sm:inline-flex",
-          (selected || focused) &&
-            "border-primary/30 bg-primary/5 text-foreground",
+          selected && "border-primary/25 bg-primary/5 text-foreground",
         )}
       >
         {bookmark.category}
@@ -146,9 +151,7 @@ export const BookmarkRow = memo(function BookmarkRow({
       <span
         className={cn(
           "hidden justify-self-end whitespace-nowrap text-2xs tabular-nums md:inline",
-          selected || focused
-            ? "text-foreground/70"
-            : "text-muted-foreground",
+          selected ? "text-foreground/70" : "text-muted-foreground",
         )}
       >
         {date}

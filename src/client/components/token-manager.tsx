@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { buildBookmarkletCode } from "@/shared/bookmarklet";
 import { generateWriteToken, isValidTokenFormat } from "@/shared/security";
-import { regenerateTokenApi } from "@/client/lib/api";
+import { claimCollectionApi, regenerateTokenApi } from "@/client/lib/api";
 import {
   clearStoredWriteToken,
   downloadTokenBackup,
@@ -119,10 +119,26 @@ export function TokenManager({
     setStep("overview");
   };
 
-  const handlePasteSave = () => {
+  const handlePasteSave = async () => {
     const trimmed = pasteValue.trim();
     if (!isValidTokenFormat(trimmed)) {
       toast.error(t("invalidToken"));
+      return;
+    }
+    setBusy(true);
+    try {
+      // Verify ownership when collection exists; claim when it does not.
+      await claimCollectionApi({ mark, token: trimmed });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (/different write token/i.test(msg) || /Invalid write token/i.test(msg)) {
+        toast.error(t("invalidToken"));
+        setBusy(false);
+        return;
+      }
+      // Other errors (rate limit, network): still block save so user retries
+      toast.error(msg || t("invalidToken"));
+      setBusy(false);
       return;
     }
     setStoredWriteToken(mark, trimmed);
@@ -131,19 +147,7 @@ export function TokenManager({
     onTokenReady(trimmed);
     toast.success(t("tokenSaved"));
     setStep("overview");
-  };
-
-  const handleGenerateStart = () => {
-    if (token) {
-      // Existing local token — generating a new one without rotate will NOT unlock an owned collection
-      setStep("generate");
-      setPendingToken(generateWriteToken());
-      setBackupAck(false);
-      return;
-    }
-    setPendingToken(generateWriteToken());
-    setBackupAck(false);
-    setStep("generate");
+    setBusy(false);
   };
 
   const handleGenerateConfirm = () => {
@@ -154,7 +158,6 @@ export function TokenManager({
     setTokenBackupAcknowledged(mark, true);
     saveAndClose(pendingToken);
     toast.success(t("tokenSaved"));
-    toast.message(t("claimHint"));
   };
 
   const handleRotateStart = () => {
@@ -229,40 +232,47 @@ export function TokenManager({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Shield className="h-4 w-4" />
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="flex items-center gap-2 font-display">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
+              <Shield className="h-4 w-4" />
+            </span>
             {t("title")}
           </DialogTitle>
-          <DialogDescription>{t("description", { mark })}</DialogDescription>
+          <DialogDescription className="text-xs">
+            {t("description", { mark })}
+          </DialogDescription>
         </DialogHeader>
 
         {step === "overview" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {token ? (
               <>
-                <div className="space-y-2 rounded-md border border-border/60 bg-muted/30 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {t("currentToken")}
-                    </span>
-                    {!isTokenBackupAcknowledged(mark) && (
-                      <span className="flex items-center gap-1 text-2xs text-amber-700 dark:text-amber-400">
-                        <AlertTriangle className="h-3 w-3" />
-                        {t("backupMissing")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <code className="min-w-0 flex-1 truncate rounded bg-background px-2 py-1.5 font-mono text-2xs">
-                      {revealed ? token : maskToken(token)}
-                    </code>
+                {/* Token + primary tools */}
+                <div className="overflow-hidden rounded-lg border border-border/70">
+                  <div className="flex items-center gap-1 bg-muted/40 px-2.5 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-0.5 flex items-center gap-1.5">
+                        <span className="text-2xs font-medium text-muted-foreground">
+                          {t("currentToken")}
+                        </span>
+                        {!isTokenBackupAcknowledged(mark) && (
+                          <span className="inline-flex items-center gap-0.5 text-2xs text-amber-700 dark:text-amber-400">
+                            <AlertTriangle className="h-3 w-3" />
+                            {t("backupMissing")}
+                          </span>
+                        )}
+                      </div>
+                      <code className="block truncate font-mono text-xs leading-5">
+                        {revealed ? token : maskToken(token)}
+                      </code>
+                    </div>
                     <Button
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 shrink-0"
+                      className="h-7 w-7 shrink-0"
                       onClick={() => setRevealed((v) => !v)}
                       title={revealed ? t("hide") : t("reveal")}
                     >
@@ -276,8 +286,9 @@ export function TokenManager({
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 shrink-0"
+                      className="h-7 w-7 shrink-0"
                       onClick={() => copyToken(token)}
+                      title={t("copyToken")}
                     >
                       {copied ? (
                         <Check className="h-3.5 w-3.5" />
@@ -285,96 +296,100 @@ export function TokenManager({
                         <Copy className="h-3.5 w-3.5" />
                       )}
                     </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      title={t("downloadBackup")}
+                      onClick={() => {
+                        downloadTokenBackup(mark, token);
+                        setBackupAck(true);
+                        setTokenBackupAcknowledged(mark, true);
+                        toast.success(t("backupDownloaded"));
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  <p className="text-2xs text-amber-700 dark:text-amber-400">
-                    {t("tokenWarning")}
-                  </p>
+
+                  <div className="flex items-center gap-1 border-t border-border/60 px-1.5 py-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={handleRotateStart}
+                    >
+                      <RefreshCcw className="mr-1 h-3 w-3" />
+                      {t("rotate")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                      onClick={() => setStep("clear-confirm")}
+                    >
+                      {t("clearLocal")}
+                    </Button>
+                    <span className="ml-auto px-1.5 text-2xs text-muted-foreground">
+                      {t("tokenWarningShort")}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8"
-                    onClick={() => {
-                      downloadTokenBackup(mark, token);
-                      setBackupAck(true);
-                      toast.success(t("backupDownloaded"));
-                    }}
-                  >
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                    {t("downloadBackup")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8"
-                    onClick={handleRotateStart}
-                  >
-                    <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
-                    {t("rotate")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 text-destructive"
-                    onClick={() => setStep("clear-confirm")}
-                  >
-                    {t("clearLocal")}
-                  </Button>
-                </div>
-
-                <div className="space-y-1.5 rounded-md border border-border/60 p-3">
-                  <p className="text-xs font-medium">{t("bookmarklet")}</p>
-                  <BookmarkletLink code={bookmarklet} className="inline-flex">
-                    <Button size="sm" variant="secondary" className="h-8 cursor-grab" asChild>
-                      <span>{t("dragBookmarklet", { mark })}</span>
+                {/* Bookmarklet — single compact row */}
+                <div className="flex items-center gap-2.5 rounded-lg border border-border/70 px-2.5 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium leading-none">{t("bookmarklet")}</p>
+                    <p className="mt-1 text-2xs text-muted-foreground">{t("bookmarkletHint")}</p>
+                  </div>
+                  <BookmarkletLink code={bookmarklet} className="shrink-0">
+                    <Button size="sm" variant="secondary" className="h-8 max-w-[11rem] cursor-grab px-2.5" asChild>
+                      <span className="truncate">{t("dragBookmarklet", { mark })}</span>
                     </Button>
                   </BookmarkletLink>
-                  <p className="text-2xs text-muted-foreground">
-                    {t("bookmarkletHint")}
-                  </p>
+                </div>
+
+                {/* Secondary: paste / restore */}
+                <div className="border-t border-border/50 pt-2.5">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={() => {
+                      setPasteValue("");
+                      setStep("paste");
+                    }}
+                  >
+                    <Upload className="h-3 w-3" />
+                    {t("pasteRestore")}
+                  </button>
                 </div>
               </>
             ) : (
-              <div className="space-y-3 rounded-md border border-dashed border-border p-4 text-center">
-                <KeyRound className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">{t("noToken")}</p>
+              <div className="space-y-3">
+                <div className="space-y-2 rounded-lg border border-dashed border-border/80 px-4 py-6 text-center">
+                  <KeyRound className="mx-auto h-7 w-7 text-muted-foreground/45" />
+                  <p className="text-sm text-muted-foreground">{t("noToken")}</p>
+                </div>
+                <Button
+                  size="sm"
+                  className="h-9 w-full"
+                  onClick={() => {
+                    setPasteValue("");
+                    setStep("paste");
+                  }}
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  {t("pasteRestore")}
+                </Button>
               </div>
-            )}
-
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button
-                size="sm"
-                className="h-9"
-                variant={token ? "outline" : "default"}
-                onClick={() => {
-                  setPasteValue("");
-                  setStep("paste");
-                }}
-              >
-                <Upload className="mr-1.5 h-3.5 w-3.5" />
-                {t("pasteRestore")}
-              </Button>
-              <Button
-                size="sm"
-                className="h-9"
-                variant="outline"
-                onClick={handleGenerateStart}
-              >
-                <KeyRound className="mr-1.5 h-3.5 w-3.5" />
-                {token ? t("generateLocal") : t("generateNew")}
-              </Button>
-            </div>
-            {token && (
-              <p className="text-2xs text-muted-foreground">{t("generateLocalHint")}</p>
             )}
           </div>
         )}
 
         {step === "paste" && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t("pasteDescription")}</p>
+            <p className="text-xs text-muted-foreground">{t("pasteDescription")}</p>
             <Input
               value={pasteValue}
               onChange={(e) => setPasteValue(e.target.value)}
@@ -382,27 +397,26 @@ export function TokenManager({
               className="h-9 font-mono text-xs"
               autoFocus
             />
-            <div className="flex items-center gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                <Upload className="h-3.5 w-3.5" />
-                {t("loadRecoveryFile")}
-                <input
-                  type="file"
-                  accept=".json,.txt,application/json,text/plain"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void onRecoveryFile(f);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
+            <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+              <Upload className="h-3.5 w-3.5" />
+              {t("loadRecoveryFile")}
+              <input
+                type="file"
+                accept=".json,.txt,application/json,text/plain"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onRecoveryFile(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button size="sm" variant="outline" onClick={() => setStep("overview")}>
                 {t("back")}
               </Button>
-              <Button size="sm" onClick={handlePasteSave}>
+              <Button size="sm" disabled={busy} onClick={() => void handlePasteSave()}>
+                {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
                 {t("saveToken")}
               </Button>
             </DialogFooter>
@@ -417,7 +431,7 @@ export function TokenManager({
             backupAck={backupAck}
             setBackupAck={setBackupAck}
             onCopy={() => copyToken(pendingToken)}
-            warning={token ? t("generateLocalWarning") : t("generateNewWarning")}
+            warning={t("generateNewWarning")}
             onBack={() => setStep("overview")}
             onConfirm={handleGenerateConfirm}
             confirmLabel={t("confirmSave")}
@@ -426,14 +440,23 @@ export function TokenManager({
 
         {step === "rotate-confirm" && (
           <div className="space-y-3">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-              <p className="font-medium text-amber-800 dark:text-amber-300">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
                 {t("rotateTitle")}
               </p>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-muted-foreground">
-                <li>{t("rotatePoint1")}</li>
-                <li>{t("rotatePoint2")}</li>
-                <li>{t("rotatePoint3")}</li>
+              <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
+                <li className="flex gap-1.5">
+                  <span className="text-amber-700/70 dark:text-amber-400/70">·</span>
+                  {t("rotatePoint1")}
+                </li>
+                <li className="flex gap-1.5">
+                  <span className="text-amber-700/70 dark:text-amber-400/70">·</span>
+                  {t("rotatePoint2")}
+                </li>
+                <li className="flex gap-1.5">
+                  <span className="text-amber-700/70 dark:text-amber-400/70">·</span>
+                  {t("rotatePoint3")}
+                </li>
               </ul>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
@@ -473,7 +496,7 @@ export function TokenManager({
 
         {step === "clear-confirm" && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t("clearWarning")}</p>
+            <p className="text-xs text-muted-foreground">{t("clearWarning")}</p>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button size="sm" variant="outline" onClick={() => setStep("overview")}>
                 {t("back")}
@@ -516,35 +539,37 @@ function BackupGate({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">{warning}</p>
-      <div className="rounded-md border border-border bg-muted/30 p-3">
-        <p className="mb-1 text-2xs font-medium uppercase text-muted-foreground">
-          {t("newToken")}
-        </p>
-        <code className="block break-all font-mono text-xs">{pendingToken}</code>
+      <p className="text-xs text-muted-foreground">{warning}</p>
+      <div className="overflow-hidden rounded-lg border border-border/70">
+        <div className="bg-muted/40 px-2.5 py-2">
+          <p className="mb-0.5 text-2xs font-medium text-muted-foreground">
+            {t("newToken")}
+          </p>
+          <code className="block break-all font-mono text-xs leading-5">{pendingToken}</code>
+        </div>
+        <div className="flex items-center gap-1 border-t border-border/60 px-1.5 py-1">
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onCopy}>
+            <Copy className="mr-1 h-3 w-3" />
+            {t("copyToken")}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={() => {
+              downloadTokenBackup(mark, pendingToken);
+              setBackupAck(true);
+            }}
+          >
+            <Download className="mr-1 h-3 w-3" />
+            {t("downloadBackup")}
+          </Button>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" className="h-8" onClick={onCopy}>
-          <Copy className="mr-1.5 h-3.5 w-3.5" />
-          {t("copyToken")}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-8"
-          onClick={() => {
-            downloadTokenBackup(mark, pendingToken);
-            setBackupAck(true);
-          }}
-        >
-          <Download className="mr-1.5 h-3.5 w-3.5" />
-          {t("downloadBackup")}
-        </Button>
-      </div>
-      <label className="flex cursor-pointer items-start gap-2 text-sm">
+      <label className="flex cursor-pointer items-start gap-2 text-xs leading-snug">
         <input
           type="checkbox"
-          className="mt-1"
+          className="mt-0.5"
           checked={backupAck}
           onChange={(e) => setBackupAck(e.target.checked)}
         />

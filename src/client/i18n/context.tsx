@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -50,6 +51,10 @@ function detectLocale(): Locale {
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(detectLocale);
 
+  useEffect(() => {
+    document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+  }, [locale]);
+
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
     try {
@@ -57,7 +62,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
-    document.documentElement.lang = next === "zh" ? "zh-CN" : "en";
   }, []);
 
   const messages = catalogs[locale];
