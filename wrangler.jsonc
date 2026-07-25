@@ -29,12 +29,4 @@
   "vars": {
     "BASE_URL": "https://cloudmark.site",
   },
-  /**
-   * Custom domain — DNS for cloudmark.site must point at Cloudflare.
-   * workers.dev URL remains available as a fallback.
-   */
-  "routes": [
-    { "pattern": "cloudmark.site", "custom_domain": true },
-    { "pattern": "www.cloudmark.site", "custom_domain": true },
-  ],
 }
