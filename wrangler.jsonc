@@ -22,8 +22,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "cloudmark",
-      "database_id": "8f839713-421d-45e3-8f81-7c593a0c4b2e",
+      "database_name": "cloudmark-1",
+      "database_id": "9e4d41e9-3c0d-43e7-9455-160b2c205b01",
       "migrations_dir": "migrations",
     },
   ],
