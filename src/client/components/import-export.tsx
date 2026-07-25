@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Download,
   FileUp,
@@ -26,6 +26,8 @@ import { downloadJson, downloadTextFile } from "@/client/lib/download";
 import { importBookmarksApi } from "@/client/lib/api";
 import { useTranslations } from "@/client/i18n/context";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CATEGORY_MAX_LENGTH } from "@/shared/constants";
+import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
 
 interface ImportExportProps {
   mark: string;
@@ -38,6 +40,86 @@ interface ImportExportProps {
 }
 
 const CHUNK = 200;
+
+function resolveImportCategory(source: string, target: string): string {
+  if (target === "parsed") return source;
+  const normalized = source === "default" ? "" : source;
+  const combined = normalized ? `${target} / ${normalized}` : target;
+  return combined.slice(0, CATEGORY_MAX_LENGTH);
+}
+
+interface FolderNode {
+  name: string;
+  path: string;
+  bookmarks: Array<{ item: ParsedBookmark; index: number }>;
+  children: FolderNode[];
+}
+
+function buildFolderTree(items: ParsedBookmark[]): FolderNode[] {
+  const roots: FolderNode[] = [];
+  const nodes = new Map<string, FolderNode>();
+  for (const [index, item] of items.entries()) {
+    const parts = item.category.split(" / ").filter(Boolean);
+    let parent: FolderNode | undefined;
+    let path = "";
+    for (const part of parts.length ? parts : ["default"]) {
+      path = path ? `${path} / ${part}` : part;
+      let node = nodes.get(path);
+      if (!node) {
+        node = { name: part, path, bookmarks: [], children: [] };
+        nodes.set(path, node);
+        if (parent) parent.children.push(node);
+        else roots.push(node);
+      }
+      parent = node;
+    }
+    parent?.bookmarks.push({ item, index });
+  }
+  return roots;
+}
+
+function collectFolderIndexes(node: FolderNode): number[] {
+  return [
+    ...node.bookmarks.map(({ index }) => index),
+    ...node.children.flatMap(collectFolderIndexes),
+  ];
+}
+
+function FolderTreeItem({
+  node,
+  selectedIndexes,
+  disabled,
+  onToggle,
+}: {
+  node: FolderNode;
+  selectedIndexes: Set<number>;
+  disabled: boolean;
+  onToggle: (indexes: number[]) => void;
+}) {
+  const indexes = collectFolderIndexes(node);
+  const allSelected = indexes.length > 0 && indexes.every((index) => selectedIndexes.has(index));
+  const toggleOne = (index: number) => onToggle([index]);
+  return (
+    <li className="min-w-0 overflow-hidden">
+      <div className="flex min-w-0 items-center gap-2 rounded px-1 py-1 font-medium hover:bg-muted/60">
+        <input className="shrink-0" type="checkbox" checked={allSelected} disabled={disabled} onChange={() => onToggle(indexes)} />
+        <span className="min-w-0 flex-1 truncate" title={node.path}>📁 {node.name}</span>
+        <span className="shrink-0 tabular-nums opacity-60">{indexes.length}</span>
+      </div>
+      <ul className="ml-4 space-y-1 border-l border-border/50 pl-2">
+        {node.bookmarks.map(({ item, index }) => (
+          <li key={`${item.url}-${index}`} className="flex min-w-0 items-start gap-2 overflow-hidden rounded px-1 py-1 hover:bg-muted/60">
+            <input className="mt-0.5 shrink-0" type="checkbox" checked={selectedIndexes.has(index)} disabled={disabled} onChange={() => toggleOne(index)} />
+            <span className="block min-w-0 flex-1 truncate" title={`${item.category} / ${item.title}`}>{item.title}</span>
+          </li>
+        ))}
+        {node.children.map((child) => (
+          <FolderTreeItem key={child.path} node={child} selectedIndexes={selectedIndexes} disabled={disabled} onToggle={onToggle} />
+        ))}
+      </ul>
+    </li>
+  );
+}
 
 export function ImportExportDialog({
   mark,
@@ -58,6 +140,10 @@ export function ImportExportDialog({
   const [targetCategory, setTargetCategory] = useState("parsed");
   const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(
     () => new Set(),
+  );
+  const folderTree = useMemo(
+    () => (preview ? buildFolderTree(preview) : []),
+    [preview],
   );
 
   const resetImport = () => {
@@ -116,6 +202,16 @@ export function ImportExportDialog({
       toast.error(t("tokenRequired"));
       return;
     }
+    if (bookmarks.length + selectedIndexes.size > MAX_BOOKMARKS_PER_MARK) {
+      toast.error(
+        t("capacityExceeded", {
+          current: bookmarks.length,
+          selected: selectedIndexes.size,
+          maximum: MAX_BOOKMARKS_PER_MARK,
+        }),
+      );
+      return;
+    }
     setBusy(true);
     let importedTotal = 0;
     let skippedTotal = 0;
@@ -140,7 +236,7 @@ export function ImportExportDialog({
             url: b.url,
             title: b.title,
             description: b.description,
-            category: targetCategory === "parsed" ? b.category : targetCategory,
+            category: resolveImportCategory(b.category, targetCategory),
             createdAt:
               b.addDate != null
                 ? new Date(b.addDate * 1000).toISOString()
@@ -172,7 +268,7 @@ export function ImportExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-lg">
+      <DialogContent className="flex h-[min(90vh,900px)] w-[calc(100vw-2rem)] max-w-none flex-col overflow-hidden p-4 sm:w-[min(960px,calc(100vw-2rem))] sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <FileUp className="h-4 w-4" />
@@ -251,7 +347,7 @@ export function ImportExportDialog({
         )}
 
         {tab === "import" && (
-          <div className="space-y-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
             <p className="text-sm text-muted-foreground">{t("importHint")}</p>
             <input
               ref={fileRef}
@@ -275,7 +371,7 @@ export function ImportExportDialog({
             </Button>
 
             {preview && (
-              <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-sm">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border/60 bg-muted/20 p-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <p className="min-w-0 truncate font-medium" title={fileName}>
                     {fileName}{" "}
@@ -295,12 +391,20 @@ export function ImportExportDialog({
                     {t("clearSelection")}
                   </Button>
                 </div>
-                <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-2xs text-muted-foreground">
-                  {preview.map((b, index) => (
-                    <li key={`${b.url}-${index}`} className="flex min-w-0 items-start gap-2 overflow-hidden rounded px-1 py-1 hover:bg-muted/60">
-                      <input className="mt-0.5 shrink-0" type="checkbox" checked={selectedIndexes.has(index)} disabled={busy} onChange={() => setSelectedIndexes((previous) => { const next = new Set(previous); if (next.has(index)) next.delete(index); else next.add(index); return next; })} />
-                      <span className="block min-w-0 flex-1 truncate" title={`${b.category} / ${b.title}`}>[{b.category}] {b.title}</span>
-                    </li>
+                <ul className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden text-2xs text-muted-foreground">
+                  {folderTree.map((node) => (
+                    <FolderTreeItem
+                      key={node.path}
+                      node={node}
+                      selectedIndexes={selectedIndexes}
+                      disabled={busy}
+                      onToggle={(indexes) => setSelectedIndexes((previous) => {
+                        const next = new Set(previous);
+                        const allSelected = indexes.every((index) => next.has(index));
+                        indexes.forEach((index) => allSelected ? next.delete(index) : next.add(index));
+                        return next;
+                      })}
+                    />
                   ))}
                 </ul>
                 {progress && (
@@ -309,7 +413,7 @@ export function ImportExportDialog({
               </div>
             )}
 
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="shrink-0 gap-2 border-t border-border/50 bg-card/95 pt-3 sm:gap-0">
               <Button
                 size="sm"
                 variant="outline"

@@ -157,16 +157,24 @@ export async function renameCollectionCategory(db: D1Database, mark: string, tok
   if (from === defaultCategory || to === defaultCategory) throw new Error("default 分类不能重命名");
   if (from === to) return;
   const categories = new Set([...getCategoryOrder(collection), ...(await getBookmarksForMark(db, mark)).map((bookmark) => bookmark.category)]);
-  if (!categories.has(from) || categories.has(to)) throw new Error("分类不存在或名称已存在");
-  await renameCategory(db, mark, from, to, getCategoryOrder(collection).map((category) => category === from ? to : category));
+  const hasFrom = categories.has(from) || [...categories].some((category) => category.startsWith(`${from} / `));
+  if (!hasFrom || [...categories].some((category) => category === to || category.startsWith(`${to} / `))) throw new Error("分类不存在或名称已存在");
+  const paths = [...categories].filter((category) => category === from || category.startsWith(`${from} / `));
+  const order = getCategoryOrder(collection).map((category) => category === from || category.startsWith(`${from} / `) ? `${to}${category.slice(from.length)}` : category);
+  const currentDefault = collection.default_category;
+  const nextDefault = currentDefault === from || currentDefault.startsWith(`${from} / `)
+    ? `${to}${currentDefault.slice(from.length)}`
+    : currentDefault;
+  await renameCategory(db, mark, from, to, paths, order, nextDefault);
 }
 
 export async function deleteCollectionCategory(db: D1Database, mark: string, token: string, category: string) {
   const collection = await requireCollectionWrite(db, mark, token);
   if (category === defaultCategory) throw new Error("default 分类不能删除");
   const categories = new Set([...getCategoryOrder(collection), ...(await getBookmarksForMark(db, mark)).map((bookmark) => bookmark.category)]);
-  if (!categories.has(category)) throw new Error("分类不存在");
-  return deleteCategory(db, mark, category, getCategoryOrder(collection).filter((item) => item !== category));
+  if (!categories.has(category) && ![...categories].some((item) => item.startsWith(`${category} / `))) throw new Error("分类不存在");
+  const paths = [...categories].filter((item) => item === category || item.startsWith(`${category} / `));
+  return deleteCategory(db, mark, category, paths, getCategoryOrder(collection).filter((item) => !paths.includes(item)));
 }
 
 export async function deleteBookmarkRecords(db: D1Database, input: { mark: string; token: string; uuids: string[] }) {
@@ -536,9 +544,9 @@ export async function importBookmarks(
 
   const existingCount = await countBookmarks(db, mark);
   const room = MAX_BOOKMARKS_PER_MARK - existingCount;
-  if (room <= 0) {
+  if (room <= 0 && bookmarks.length > 0) {
     throw new Error(
-      `Collection has reached the maximum of ${MAX_BOOKMARKS_PER_MARK} bookmarks`,
+      `Collection already contains ${existingCount} bookmarks. The maximum is ${MAX_BOOKMARKS_PER_MARK}; delete some bookmarks before importing more.`,
     );
   }
 

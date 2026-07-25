@@ -424,6 +424,7 @@
     "clearSelection": "取消全选",
     "clear": "清除",
     "tokenRequired": "导入需要 write token"
+    ,"capacityExceeded": "当前已有 {current} 个书签，本次选择 {selected} 个，超过 {maximum} 个上限"
   },
   "CollectionSettings": {
     "title": "集合设置",

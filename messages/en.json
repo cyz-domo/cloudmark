@@ -424,6 +424,7 @@
     "clearSelection": "Clear selection",
     "clear": "Clear",
     "tokenRequired": "Write token required to import"
+    ,"capacityExceeded": "There are {current} bookmarks already; selecting {selected} more exceeds the limit of {maximum}"
   },
   "CollectionSettings": {
     "title": "Collection settings",

@@ -20,6 +20,8 @@ import {
   Settings2,
   Trash2,
   GripVertical,
+  ChevronRight,
+  ChevronDown,
   Upload,
   X,
 } from "lucide-react";
@@ -54,6 +56,7 @@ import {
 } from "@/client/lib/token-store";
 import {
   ALL_CATEGORIES,
+  isCategoryInTree,
   useBookmarkFilter,
   type SortColumn,
   type SortKey,
@@ -1120,18 +1123,22 @@ export function CollectionPage() {
               shortcut="0"
               onClick={() => setCategory(ALL_CATEGORIES)}
             />
-            {filter.categories.map((cat, i) => (
-              <div key={cat} className="group/category relative" draggable={canWrite} onDragStart={() => setDraggedCategory(cat)} onDragOver={(event) => event.preventDefault()} onDrop={() => moveCategory(cat)}>
-              <CategoryButton
-                active={category === cat}
-                label={cat}
-                count={filter.categoryCounts.get(cat) ?? 0}
+            {buildCategoryTree(filter.categories).map((node, i) => (
+              <CategoryTreeItem
+                key={node.path}
+                node={node}
+                activeCategory={category}
+                counts={filter.categoryCounts}
+                managedCategories={filter.categories}
                 shortcut={i < 9 ? String(i + 1) : undefined}
-                onClick={() => setCategory(cat)}
-                onRename={cat === "default" ? undefined : () => void renameCurrentCategory(cat)}
-                onDelete={cat === "default" ? undefined : () => void deleteCurrentCategory(cat)}
+                canWrite={canWrite}
+                onSelect={setCategory}
+                onDragStart={setDraggedCategory}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={moveCategory}
+                onRename={(cat) => void renameCurrentCategory(cat)}
+                onDelete={(cat) => void deleteCurrentCategory(cat)}
               />
-              </div>
             ))}
             {canWrite ? (
               <form className="mt-1 flex gap-1" onSubmit={(event) => { event.preventDefault(); void addCategory(); }}>
@@ -1503,6 +1510,9 @@ function CategoryButton({
   onClick,
   onRename,
   onDelete,
+  indent = 0,
+  parent = false,
+  expanded = false,
 }: {
   active: boolean;
   label: string;
@@ -1511,6 +1521,9 @@ function CategoryButton({
   onClick: () => void;
   onRename?: () => void;
   onDelete?: () => void;
+  indent?: number;
+  parent?: boolean;
+  expanded?: boolean;
 }) {
   return (
     <div
@@ -1520,13 +1533,16 @@ function CategoryButton({
       onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } }}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "group/cat flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group/cat flex w-full items-center gap-2 rounded-lg py-2 text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        indent ? "pl-1.5 pr-2" : "px-2.5",
         active
           ? "bg-primary font-semibold text-primary-foreground shadow-sm"
           : "text-muted-foreground hover:bg-muted/90 hover:text-foreground",
       )}
     >
       <GripVertical className="h-3 w-3 shrink-0 opacity-40" aria-hidden />
+      {parent ? (expanded ? <ChevronDown className="h-3 w-3 shrink-0 opacity-60" aria-hidden /> : <ChevronRight className="h-3 w-3 shrink-0 opacity-60" aria-hidden />) : <span className="h-3 w-3 shrink-0" />}
+      {parent && <Folder className="h-3 w-3 shrink-0 opacity-60" aria-hidden />}
       <span
         className={cn(
           "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
@@ -1557,6 +1573,113 @@ function CategoryButton({
       ) : null}
       {onRename && <button type="button" className="ml-1 hidden text-[10px] opacity-60 group-hover/cat:inline" onClick={(event) => { event.stopPropagation(); onRename(); }}>改</button>}
       {onDelete && <button type="button" className="hidden text-[10px] text-destructive opacity-70 group-hover/cat:inline" onClick={(event) => { event.stopPropagation(); onDelete(); }}>删</button>}
+    </div>
+  );
+}
+
+function buildCategoryTree(categories: string[]) {
+  type Node = { name: string; path: string; children: Node[] };
+  const roots: Node[] = [];
+  const nodes = new Map<string, Node>();
+  for (const category of categories) {
+    const parts = category.split(" / ");
+    let parent: Node | undefined;
+    let path = "";
+    for (const part of parts) {
+      path = path ? `${path} / ${part}` : part;
+      let node = nodes.get(path);
+      if (!node) {
+        node = { name: part, path, children: [] };
+        nodes.set(path, node);
+        if (parent) parent.children.push(node);
+        else roots.push(node);
+      }
+      parent = node;
+    }
+  }
+  return roots;
+}
+
+type CategoryTreeNode = ReturnType<typeof buildCategoryTree>[number];
+
+function CategoryTreeItem({
+  node,
+  activeCategory,
+  counts,
+  managedCategories,
+  shortcut,
+  canWrite,
+  onSelect,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onRename,
+  onDelete,
+}: {
+  node: CategoryTreeNode;
+  activeCategory: string;
+  counts: Map<string, number>;
+  managedCategories: string[];
+  shortcut?: string;
+  canWrite: boolean;
+  onSelect: (category: string) => void;
+  onDragStart: (category: string) => void;
+  onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDrop: (category: string) => void;
+  onRename: (category: string) => void;
+  onDelete: (category: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const count = [...counts.entries()]
+    .filter(([category]) => isCategoryInTree(category, node.path))
+    .reduce((total, [, value]) => total + value, 0);
+  const isParent = node.children.length > 0;
+  const isManaged = managedCategories.includes(node.path);
+  const isFolderPath = isManaged || isParent;
+  return (
+    <div
+      className="group/category relative"
+      draggable={canWrite && isManaged}
+      onDragStart={() => isManaged && onDragStart(node.path)}
+      onDragOver={onDragOver}
+      onDrop={() => onDrop(node.path)}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        if (isParent) setExpanded((value) => !value);
+      }}
+    >
+      <CategoryButton
+        active={activeCategory === node.path}
+        label={node.name}
+        count={count}
+        shortcut={shortcut}
+        indent={node.path.includes(" / ") ? 1 : 0}
+        parent={isParent}
+        onClick={() => onSelect(node.path)}
+        onRename={!isFolderPath || node.path === "default" ? undefined : () => onRename(node.path)}
+        onDelete={!isFolderPath || node.path === "default" ? undefined : () => onDelete(node.path)}
+        expanded={expanded}
+      />
+      {expanded && node.children.length > 0 && (
+        <div className="ml-3 border-l border-border/40 pl-1">
+          {node.children.map((child) => (
+            <CategoryTreeItem
+              key={child.path}
+              node={child}
+              activeCategory={activeCategory}
+              counts={counts}
+              managedCategories={managedCategories}
+              canWrite={canWrite}
+              onSelect={onSelect}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              onRename={onRename}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

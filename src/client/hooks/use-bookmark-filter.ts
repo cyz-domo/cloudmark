@@ -11,6 +11,10 @@ export type SortKey = "newest" | "oldest" | "title" | "category" | "title-desc" 
 
 export const ALL_CATEGORIES = "__all__";
 
+export function isCategoryInTree(category: string, parent: string): boolean {
+  return category === parent || category.startsWith(`${parent} / `);
+}
+
 function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
@@ -157,7 +161,7 @@ export function useBookmarkFilter(bookmarks: BookmarkInstance[], categoryOrder: 
   const filtered = useMemo(() => {
     let list = bookmarks;
     if (category !== ALL_CATEGORIES) {
-      list = list.filter((b) => b.category === category);
+      list = list.filter((b) => isCategoryInTree(b.category, category));
     }
     if (query.trim()) {
       list = list.filter((b) => matchesQuery(b, query));

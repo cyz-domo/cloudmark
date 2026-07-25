@@ -89,22 +89,22 @@ export async function updateCategoryOrder(db: D1Database, mark: string, categori
     .bind(JSON.stringify(categories), new Date().toISOString(), mark).run();
 }
 
-export async function renameCategory(db: D1Database, mark: string, from: string, to: string, order: string[]): Promise<void> {
+export async function renameCategory(db: D1Database, mark: string, from: string, to: string, paths: string[], order: string[], defaultCategory: string): Promise<void> {
   const now = new Date().toISOString();
   await db.batch([
-    db.prepare("UPDATE bookmarks SET category = ? WHERE mark = ? AND category = ?").bind(to, mark, from),
-    db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? THEN ? ELSE default_category END, updated_at = ? WHERE mark = ?")
-      .bind(JSON.stringify(order), from, to, now, mark),
+    ...paths.map((path) => db.prepare("UPDATE bookmarks SET category = ? WHERE mark = ? AND category = ?").bind(path === from ? to : `${to} / ${path.slice(from.length + 3)}`, mark, path)),
+    db.prepare("UPDATE collections SET category_order = ?, default_category = ?, updated_at = ? WHERE mark = ?")
+      .bind(JSON.stringify(order), defaultCategory, now, mark),
   ]);
 }
 
-export async function deleteCategory(db: D1Database, mark: string, category: string, order: string[]): Promise<number> {
+export async function deleteCategory(db: D1Database, mark: string, category: string, paths: string[], order: string[]): Promise<number> {
   const results = await db.batch([
-    db.prepare("DELETE FROM bookmarks WHERE mark = ? AND category = ?").bind(mark, category),
-    db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? THEN 'default' ELSE default_category END, updated_at = ? WHERE mark = ?")
-      .bind(JSON.stringify(order), category, new Date().toISOString(), mark),
+    ...paths.map((path) => db.prepare("DELETE FROM bookmarks WHERE mark = ? AND category = ?").bind(mark, path)),
+    db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? OR default_category LIKE ? THEN 'default' ELSE default_category END, updated_at = ? WHERE mark = ?")
+      .bind(JSON.stringify(order), category, `${category} / %`, new Date().toISOString(), mark),
   ]);
-  return results[0]?.meta.changes ?? 0;
+  return results.reduce((total, result) => total + (result.meta.changes ?? 0), 0);
 }
 
 export async function deleteBookmarks(db: D1Database, mark: string, uuids: string[]): Promise<number> {
