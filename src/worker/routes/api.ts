@@ -6,6 +6,7 @@ import {
   insertSchema,
   regenerateTokenSchema,
   updateCollectionSettingsSchema,
+  reorderBookmarksSchema,
   updateSchema,
 } from "@/shared/schema";
 import {
@@ -17,6 +18,7 @@ import {
   regenerateToken,
   saveCollectionSettings,
   updateBookmarkRecord,
+  reorderCollectionBookmarks,
 } from "../services/bookmarks";
 import type { Env } from "../env";
 
@@ -39,6 +41,17 @@ api.get("/collections/:mark", async (c) => {
   } catch (e) {
     console.error(e);
     return jsonError(c, e instanceof Error ? e.message : "Failed to load collection", 500);
+  }
+});
+
+api.post("/collections/reorder", async (c) => {
+  try {
+    const parsed = reorderBookmarksSchema.safeParse(await c.req.json());
+    if (!parsed.success) return jsonError(c, parsed.error.errors[0]?.message ?? "Invalid input");
+    await reorderCollectionBookmarks(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.orders);
+    return c.json({ ok: true });
+  } catch (e) {
+    return jsonError(c, e instanceof Error ? e.message : "Reorder failed", 400);
   }
 });
 

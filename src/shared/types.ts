@@ -22,12 +22,15 @@ export interface CollectionSettings {
   defaultCategory: string;
   /** If false, only viewers with the write token can open the collection */
   isPublic: boolean;
+  /** Optional external image URL used as the collection background */
+  backgroundUrl: string;
 }
 
 export const DEFAULT_COLLECTION_SETTINGS: CollectionSettings = {
   redirectAfterSave: true,
   defaultCategory: "default",
   isPublic: true,
+  backgroundUrl: "",
 };
 
 /**

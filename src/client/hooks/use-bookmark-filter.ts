@@ -3,11 +3,11 @@ import type { BookmarkInstance } from "@/shared/types";
 import { getDomain } from "@/shared/utils";
 
 /** Sortable columns in the bookmark table */
-export type SortColumn = "title" | "category" | "date" | "url";
+export type SortColumn = "title" | "category" | "date" | "url" | "manual";
 export type SortDir = "asc" | "desc";
 
 /** @deprecated Prefer SortColumn + SortDir — kept for toolbar Select values */
-export type SortKey = "newest" | "oldest" | "title" | "category" | "title-desc" | "category-desc" | "url" | "url-desc";
+export type SortKey = "newest" | "oldest" | "title" | "category" | "title-desc" | "category-desc" | "url" | "url-desc" | "manual";
 
 export const ALL_CATEGORIES = "__all__";
 
@@ -66,6 +66,9 @@ function sortBookmarks(
   copy.sort((a, b) => {
     let cmp = 0;
     switch (column) {
+      case "manual":
+        cmp = 0;
+        break;
       case "title":
         cmp = compareTitle(a, b);
         break;
@@ -106,12 +109,15 @@ export function sortKeyToState(key: SortKey): {
       return { column: "url", dir: "asc" };
     case "url-desc":
       return { column: "url", dir: "desc" };
+    case "manual":
+      return { column: "manual", dir: "asc" };
     default:
       return { column: "date", dir: "desc" };
   }
 }
 
 export function stateToSortKey(column: SortColumn, dir: SortDir): SortKey {
+  if (column === "manual") return "manual";
   if (column === "date") return dir === "desc" ? "newest" : "oldest";
   if (column === "title") return dir === "asc" ? "title" : "title-desc";
   if (column === "category")

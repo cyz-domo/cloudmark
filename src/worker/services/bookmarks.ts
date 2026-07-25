@@ -16,6 +16,7 @@ import {
   rowToSettings,
   updateBookmark,
   updateCollectionSettings,
+  reorderBookmarks,
   updateCollectionToken,
 } from "@/shared/db";
 import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
@@ -232,6 +233,26 @@ export async function saveCollectionSettings(
   };
   await updateCollectionSettings(db, mark, next);
   return next;
+}
+
+export async function reorderCollectionBookmarks(
+  db: D1Database,
+  mark: string,
+  token: string,
+  orders: Array<{ category: string; uuids: string[] }>,
+): Promise<void> {
+  await requireWriteAccess(db, mark, token, `reorder:${mark}`);
+  for (const order of orders) {
+    const existing = await db
+      .prepare("SELECT uuid FROM bookmarks WHERE mark = ? AND category = ?")
+      .bind(mark, order.category)
+      .all<{ uuid: string }>();
+    const expected = new Set((existing.results ?? []).map((row) => row.uuid));
+    if (expected.size !== order.uuids.length || order.uuids.some((uuid) => !expected.has(uuid))) {
+      throw new Error("排序列表与分类收藏不匹配");
+    }
+  }
+  for (const order of orders) await reorderBookmarks(db, mark, order.category, order.uuids);
 }
 
 export async function regenerateToken(

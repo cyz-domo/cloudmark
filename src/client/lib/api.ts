@@ -47,6 +47,7 @@ export async function updateCollectionSettingsApi(input: {
   redirectAfterSave?: boolean;
   defaultCategory?: string;
   isPublic?: boolean;
+  backgroundUrl?: string;
 }): Promise<CollectionSettings> {
   const res = await fetch("/api/collections/settings", {
     method: "PUT",
@@ -55,6 +56,19 @@ export async function updateCollectionSettingsApi(input: {
   });
   const data = await parseJson<{ settings: CollectionSettings }>(res);
   return data.settings;
+}
+
+export async function reorderBookmarksApi(input: {
+  mark: string;
+  token: string;
+  orders: Array<{ category: string; uuids: string[] }>;
+}): Promise<void> {
+  const res = await fetch("/api/collections/reorder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  await parseJson<{ ok: boolean }>(res);
 }
 
 export async function createBookmarkApi(input: {

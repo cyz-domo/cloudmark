@@ -1,4 +1,4 @@
-import { Eye, EyeOff, FolderOpen, Undo2 } from "lucide-react";
+import { Eye, EyeOff, FolderOpen, Image, Undo2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/shared/utils";
 import type { CollectionSettings } from "@/shared/types";
@@ -62,6 +62,21 @@ export function CollectionSettingsFields({
         <p className="mt-1.5 text-2xs text-muted-foreground">
           {t("defaultCategoryHint")}
         </p>
+      </div>
+      <div className="rounded-xl border border-border/70 bg-card/40 p-3">
+        <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+          <Image className="h-3.5 w-3.5 text-primary" />
+          {t("backgroundUrl")}
+        </label>
+        <Input
+          value={value.backgroundUrl}
+          disabled={disabled}
+          onChange={(e) => set("backgroundUrl", e.target.value.slice(0, 5 * 1024 * 1024))}
+          placeholder="https://example.com/background.jpg"
+          className="h-9"
+          type="url"
+        />
+        <p className="mt-1.5 text-2xs text-muted-foreground">{t("backgroundUrlHint")}</p>
       </div>
     </div>
   );

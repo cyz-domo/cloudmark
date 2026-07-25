@@ -17,6 +17,7 @@ export interface CollectionRow {
   redirect_after_save: number;
   default_category: string;
   is_public: number;
+  background_url: string;
 }
 
 export function rowToSettings(row: CollectionRow): CollectionSettings {
@@ -24,6 +25,7 @@ export function rowToSettings(row: CollectionRow): CollectionSettings {
     redirectAfterSave: row.redirect_after_save !== 0,
     defaultCategory: row.default_category || DEFAULT_COLLECTION_SETTINGS.defaultCategory,
     isPublic: row.is_public !== 0,
+    backgroundUrl: row.background_url || "",
   };
 }
 
@@ -62,7 +64,8 @@ export async function getCollection(
               COALESCE(token_delivered, 1) as token_delivered,
               COALESCE(redirect_after_save, 1) as redirect_after_save,
               COALESCE(default_category, 'default') as default_category,
-              COALESCE(is_public, 1) as is_public
+              COALESCE(is_public, 1) as is_public,
+              COALESCE(background_url, '') as background_url
        FROM collections WHERE mark = ?`,
     )
     .bind(mark)
@@ -77,7 +80,7 @@ export async function getBookmarksForMark(
   const { results } = await db
     .prepare(
       `SELECT uuid, mark, url, title, description, category, favicon, created_at, modified_at
-       FROM bookmarks WHERE mark = ? ORDER BY created_at ASC`,
+       FROM bookmarks WHERE mark = ? ORDER BY category ASC, sort_order ASC, created_at ASC`,
     )
     .bind(mark)
     .all<BookmarkRow>();
@@ -136,8 +139,8 @@ export async function createCollection(
     .prepare(
       `INSERT INTO collections
         (mark, write_token_hash, created_at, updated_at, migrated_from_kv, token_delivered,
-         redirect_after_save, default_category, is_public)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         redirect_after_save, default_category, is_public, background_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       mark,
@@ -149,6 +152,7 @@ export async function createCollection(
       settings.redirectAfterSave ? 1 : 0,
       settings.defaultCategory || defaultCategory,
       settings.isPublic ? 1 : 0,
+      settings.backgroundUrl || "",
     )
     .run();
 }
@@ -165,6 +169,7 @@ export async function updateCollectionSettings(
        SET redirect_after_save = ?,
            default_category = ?,
            is_public = ?,
+           background_url = ?,
            updated_at = ?
        WHERE mark = ?`,
     )
@@ -172,10 +177,25 @@ export async function updateCollectionSettings(
       settings.redirectAfterSave ? 1 : 0,
       settings.defaultCategory || defaultCategory,
       settings.isPublic ? 1 : 0,
+      settings.backgroundUrl || "",
       now,
       mark,
     )
     .run();
+}
+
+export async function reorderBookmarks(
+  db: D1Database,
+  mark: string,
+  category: string,
+  uuids: string[],
+): Promise<void> {
+  const statements = uuids.map((uuid, index) =>
+    db.prepare("UPDATE bookmarks SET sort_order = ? WHERE uuid = ? AND mark = ? AND category = ?")
+      .bind(index, uuid, mark, category),
+  );
+  await db.batch(statements);
+  await touchCollection(db, mark);
 }
 
 /** Issue a fresh write token and mark it undelivered (or delivered). */
@@ -250,11 +270,15 @@ export async function insertBookmark(
   mark: string,
   bookmark: BookmarkInstance,
 ): Promise<void> {
+  const position = await db
+    .prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM bookmarks WHERE mark = ? AND category = ?")
+    .bind(mark, bookmark.category)
+    .first<{ next_order: number }>();
   await db
     .prepare(
       `INSERT INTO bookmarks
-        (uuid, mark, url, title, description, category, favicon, created_at, modified_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (uuid, mark, url, title, description, category, favicon, created_at, modified_at, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       bookmark.uuid,
@@ -266,6 +290,7 @@ export async function insertBookmark(
       bookmark.favicon ?? null,
       bookmark.createdAt,
       bookmark.modifiedAt,
+      position?.next_order ?? 0,
     )
     .run();
   await touchCollection(db, mark);
@@ -364,12 +389,16 @@ export async function insertBookmarksBatch(
 ): Promise<void> {
   if (bookmarks.length === 0) return;
 
-  const statements = bookmarks.map((b) =>
-    db
+  const categoryOffsets = new Map<string, number>();
+  const statements = bookmarks.map((b) => {
+    const category = b.category || defaultCategory;
+    const offset = categoryOffsets.get(category) ?? 0;
+    categoryOffsets.set(category, offset + 1);
+    return db
       .prepare(
         `INSERT OR IGNORE INTO bookmarks
-          (uuid, mark, url, title, description, category, favicon, created_at, modified_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (uuid, mark, url, title, description, category, favicon, created_at, modified_at, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         b.uuid,
@@ -377,12 +406,13 @@ export async function insertBookmarksBatch(
         b.url,
         b.title,
         b.description ?? null,
-        b.category || defaultCategory,
+        category,
         b.favicon ?? null,
         b.createdAt,
         b.modifiedAt,
-      ),
-  );
+        offset,
+      )
+  });
 
   // D1 batch max is large enough; chunk if needed
   const CHUNK = 50;

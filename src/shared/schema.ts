@@ -74,6 +74,7 @@ export const collectionSettingsSchema = z.object({
   redirectAfterSave: z.boolean(),
   defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH),
   isPublic: z.boolean(),
+  backgroundUrl: z.string().url().max(5 * 1024 * 1024).refine((value) => /^https?:\/\//i.test(value), "Background URL must start with http:// or https://").or(z.literal("")).default(""),
 });
 
 export const updateCollectionSettingsSchema = z.object({
@@ -82,6 +83,16 @@ export const updateCollectionSettingsSchema = z.object({
   redirectAfterSave: z.boolean().optional(),
   defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH).optional(),
   isPublic: z.boolean().optional(),
+  backgroundUrl: z.string().url().max(5 * 1024 * 1024).refine((value) => /^https?:\/\//i.test(value), "Background URL must start with http:// or https://").optional().or(z.literal("")),
+});
+
+export const reorderBookmarksSchema = z.object({
+  mark: markSchema,
+  token: tokenSchema,
+  orders: z.array(z.object({
+    category: z.string().min(1).max(CATEGORY_MAX_LENGTH),
+    uuids: z.array(z.string().min(1).max(64)).min(1).max(500),
+  })).min(1).max(50),
 });
 
 /** Claim / create a collection with a client-generated write token */
@@ -126,3 +137,4 @@ export type CollectionSettingsSchema = z.infer<typeof collectionSettingsSchema>;
 export type UpdateCollectionSettingsSchema = z.infer<
   typeof updateCollectionSettingsSchema
 >;
+export type ReorderBookmarksSchema = z.infer<typeof reorderBookmarksSchema>;

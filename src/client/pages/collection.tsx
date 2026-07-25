@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/shared/utils";
-import { claimCollectionApi, fetchCollection } from "@/client/lib/api";
+import { claimCollectionApi, fetchCollection, reorderBookmarksApi } from "@/client/lib/api";
 import {
   clearStoredWriteToken,
   ensureLocalWriteToken,
@@ -116,6 +116,10 @@ export function CollectionPage() {
     ...DEFAULT_COLLECTION_SETTINGS,
   });
   const [privateLocked, setPrivateLocked] = useState(false);
+  const [draggedUuid, setDraggedUuid] = useState<string | null>(null);
+  const [dragOverUuid, setDragOverUuid] = useState<string | null>(null);
+  const [pendingOrders, setPendingOrders] = useState<Record<string, string[]>>({});
+  const [savingOrder, setSavingOrder] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +138,103 @@ export function CollectionPage() {
     sortDir,
     toggleSortColumn,
   } = filter;
+  const manualSort = sort === "manual";
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(`cloudmark:sort:${mark}`) === "manual") {
+        setSort("manual");
+      }
+    } catch {
+      // Ignore storage restrictions.
+    }
+  }, [mark, setSort]);
+
+  const selectSort = (next: SortKey) => {
+    setSort(next);
+    try {
+      localStorage.setItem(`cloudmark:sort:${mark}`, next);
+    } catch {
+      // Ignore storage restrictions.
+    }
+  };
+
+  useEffect(() => {
+    const canvas = document.querySelector<HTMLElement>(".app-canvas");
+    const clearBackground = () => {
+      if (!canvas) return;
+      canvas.classList.remove("has-collection-background");
+      canvas.style.removeProperty("--collection-background-image");
+      canvas.style.backgroundImage = "";
+      canvas.style.backgroundSize = "";
+      canvas.style.backgroundAttachment = "";
+      canvas.style.backgroundPosition = "";
+    };
+
+    if (settings.backgroundUrl) {
+      if (canvas) {
+        const safeUrl = settings.backgroundUrl.replaceAll('"', "%22");
+        canvas.classList.add("has-collection-background");
+        canvas.style.setProperty("--collection-background-image", `url("${safeUrl}")`);
+      }
+    } else {
+      clearBackground();
+    }
+    return () => {
+      clearBackground();
+    };
+  }, [settings.backgroundUrl]);
+
+  const reorder = (targetUuid: string) => {
+    if (!draggedUuid || draggedUuid === targetUuid || !canWrite || !manualSort) return;
+    const current = bookmarks.filter((bookmark) =>
+      category === ALL_CATEGORIES || bookmark.category === category,
+    );
+    const dragged = current.find((bookmark) => bookmark.uuid === draggedUuid);
+    const target = current.find((bookmark) => bookmark.uuid === targetUuid);
+    if (!dragged || !target || dragged.category !== target.category) return;
+    const categoryItems = current.filter((bookmark) => bookmark.category === dragged.category);
+    const next = [...categoryItems];
+    const from = next.findIndex((bookmark) => bookmark.uuid === draggedUuid);
+    const to = next.findIndex((bookmark) => bookmark.uuid === targetUuid);
+    next.splice(from, 1);
+    next.splice(to, 0, dragged);
+    const positions = new Map(next.map((bookmark, index) => [bookmark.uuid, index]));
+    setData((prev) => {
+      if (!prev) return prev;
+      const reordered = [...prev.bookmarks].sort((a, b) => {
+        const aPosition = positions.get(a.uuid);
+        const bPosition = positions.get(b.uuid);
+        if (aPosition === undefined || bPosition === undefined) return 0;
+        return aPosition - bPosition;
+      });
+      return { ...prev, bookmarks: reordered };
+    });
+    setPendingOrders((previous) => ({ ...previous, [dragged.category]: next.map((bookmark) => bookmark.uuid) }));
+    setDraggedUuid(null);
+    setDragOverUuid(null);
+  };
+
+  const savePendingOrders = async () => {
+    if (!writeToken || !canWrite || Object.keys(pendingOrders).length === 0) return;
+    setSavingOrder(true);
+    try {
+      await reorderBookmarksApi({
+        mark,
+        token: writeToken,
+        orders: Object.entries(pendingOrders).map(([pendingCategory, uuids]) => ({
+          category: pendingCategory,
+          uuids,
+        })),
+      });
+      setPendingOrders({});
+      toast.success(ts("reorderSaved"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : ts("reorderFailed"));
+    } finally {
+      setSavingOrder(false);
+    }
+  };
 
   const categories = useMemo(
     () => (data ? getCategories(data) : ["default"]),
@@ -1005,11 +1106,12 @@ export function CollectionPage() {
               </SelectContent>
             </Select>
 
-            <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+            <Select value={sort} onValueChange={(v) => selectSort(v as SortKey)}>
               <SelectTrigger className="h-8 w-[8.5rem] text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="manual">{ts("sortManual")}</SelectItem>
                 <SelectItem value="newest">{ts("sortNewest")}</SelectItem>
                 <SelectItem value="oldest">{ts("sortOldest")}</SelectItem>
                 <SelectItem value="title">{ts("sortTitleAsc")}</SelectItem>
@@ -1024,6 +1126,22 @@ export function CollectionPage() {
                 <SelectItem value="url-desc">{ts("sortUrlDesc")}</SelectItem>
               </SelectContent>
             </Select>
+
+            {manualSort && Object.keys(pendingOrders).length > 0 && (
+              <>
+                <span className="text-2xs text-amber-600 dark:text-amber-400">
+                  {ts("reorderUnsaved")}
+                </span>
+                <Button
+                  size="sm"
+                  className="h-8 rounded-full"
+                  disabled={savingOrder}
+                  onClick={() => void savePendingOrders()}
+                >
+                  {savingOrder ? ts("reorderSaving") : ts("saveOrder")}
+                </Button>
+              </>
+            )}
 
             {(query || category !== ALL_CATEGORIES) && (
               <Button
@@ -1203,6 +1321,21 @@ export function CollectionPage() {
                   onDelete={() => {
                     openDeleteFor([bookmark]);
                   }}
+                  reorderable={manualSort && canWrite}
+                  onDragStart={() => {
+                    setDraggedUuid(bookmark.uuid);
+                    setDragOverUuid(null);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragOverUuid(bookmark.uuid);
+                  }}
+                  onDrop={() => {
+                    setDragOverUuid(null);
+                    reorder(bookmark.uuid);
+                  }}
+                  dragging={draggedUuid === bookmark.uuid}
+                  dragOver={dragOverUuid === bookmark.uuid && draggedUuid !== bookmark.uuid}
                 />
               ))
             )}

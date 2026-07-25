@@ -53,6 +53,7 @@ export function CollectionSettingsDialog({
         token: writeToken,
         ...draft,
         defaultCategory: draft.defaultCategory.trim() || "default",
+        backgroundUrl: draft.backgroundUrl.trim(),
       });
       onSaved(next);
       toast.success(t("saved"));

@@ -1,6 +1,6 @@
 import { memo, type MouseEvent } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Check, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Check, ExternalLink, GripVertical, Pencil, Trash2 } from "lucide-react";
 import type { BookmarkInstance } from "@/shared/types";
 import { cn, getDomain } from "@/shared/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,12 @@ interface BookmarkRowProps {
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  reorderable?: boolean;
+  onDragStart?: () => void;
+  onDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDrop?: () => void;
+  dragging?: boolean;
+  dragOver?: boolean;
 }
 
 /** Shared grid template — must match collection list header */
@@ -36,6 +42,12 @@ export const BookmarkRow = memo(function BookmarkRow({
   onOpen,
   onEdit,
   onDelete,
+  reorderable,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  dragging,
+  dragOver,
 }: BookmarkRowProps) {
   const t = useTranslations("Components.BookmarkCard");
   const domain = getDomain(bookmark.url);
@@ -59,14 +71,24 @@ export const BookmarkRow = memo(function BookmarkRow({
         selected && "is-selected",
         // Focused = keyboard/mouse cursor — distinct from selection
         focused && "is-focused",
+        reorderable && "cursor-grab active:cursor-grabbing",
+        dragging && "z-10 scale-[1.01] bg-primary/10 opacity-55 shadow-lg ring-2 ring-primary/35",
+        dragOver && "translate-y-1 border-t-2 border-primary bg-primary/8 shadow-[0_-6px_18px_-12px_hsl(var(--primary))]",
       )}
+      draggable={reorderable}
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "move";
+        onDragStart?.();
+      }}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       onClick={onSelect}
       onDoubleClick={(e) => {
         e.preventDefault();
         onOpen();
       }}
     >
-      {/* Checkbox — only control that toggles multi-select without modifiers */}
+      {reorderable ? <GripVertical className="pointer-events-none absolute left-0 h-4 w-4 -translate-x-0.5 text-muted-foreground/60" aria-label="Drag to reorder" /> : null}
       <button
         type="button"
         role="checkbox"
@@ -78,6 +100,7 @@ export const BookmarkRow = memo(function BookmarkRow({
             ? "border-primary bg-primary text-primary-foreground shadow-sm"
             : "border-muted-foreground/35 bg-background hover:border-primary/55",
           focused && !selected && "border-primary/50",
+          reorderable && "translate-x-2",
         )}
         onClick={(e) => {
           e.stopPropagation();
