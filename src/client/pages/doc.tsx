@@ -392,45 +392,76 @@ export function DocPage() {
           title={t("setup.steps.install")}
           onToggle={() => toggleStep("install")}
         >
-          <DragBookmarkletDemo className="mb-4" />
+          <DragBookmarkletDemo className="mb-4" mark={mark} />
 
-          <div className="flex flex-col items-center gap-3">
-            <BookmarkletLink code={bookmarkletCode} className="inline-flex">
-              <Button
-                size="lg"
-                className="h-12 cursor-grab rounded-full px-6 shadow-glow active:cursor-grabbing"
-                asChild
-              >
-                <span className="flex items-center gap-2">
-                  <BookmarkPlus className="h-4 w-4" />
-                  {t("setup.install.saveButton", { mark })}
-                </span>
-              </Button>
-            </BookmarkletLink>
-            <p className="text-center text-xs text-muted-foreground">
-              {t("setup.install.dragTip")}
+          <div className="space-y-3">
+            <p className="text-center text-xs font-medium text-foreground">
+              {t("setup.install.dragBoth")}
             </p>
 
+            <div className="grid gap-2 sm:grid-cols-2">
+              {/* 1. Bookmarklet — drag to bar */}
+              <div className="flex flex-col items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/5 px-3 py-3">
+                <span className="text-2xs font-semibold uppercase tracking-wider text-primary">
+                  {t("setup.install.itemSave")}
+                </span>
+                <BookmarkletLink code={bookmarkletCode} className="inline-flex w-full justify-center">
+                  <Button
+                    size="sm"
+                    className="h-10 w-full max-w-[16rem] cursor-grab rounded-full px-3 shadow-glow active:cursor-grabbing"
+                    asChild
+                  >
+                    <span className="flex items-center justify-center gap-1.5 truncate">
+                      <BookmarkPlus className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{t("setup.install.saveButton", { mark })}</span>
+                    </span>
+                  </Button>
+                </BookmarkletLink>
+                <p className="text-center text-2xs text-muted-foreground">
+                  {t("setup.install.dragSaveHint")}
+                </p>
+              </div>
+
+              {/* 2. Collection shortcut — drag normal link to bar */}
+              <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/70 bg-muted/30 px-3 py-3">
+                <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t("setup.install.itemOpen")}
+                </span>
+                <a
+                  href={`/${mark}`}
+                  draggable
+                  className="inline-flex w-full max-w-[16rem] justify-center"
+                  onClick={(e) => {
+                    // Prefer drag-install; click opens after ensuring claim.
+                    e.preventDefault();
+                    void (async () => {
+                      if (!claimed) {
+                        const ok = await syncToServer();
+                        if (!ok) return;
+                      }
+                      navigate(`/${mark}`);
+                    })();
+                  }}
+                >
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-10 w-full cursor-grab rounded-full active:cursor-grabbing"
+                    asChild
+                  >
+                    <span className="flex items-center justify-center gap-1.5 truncate">
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{t("setup.install.openCollection")}</span>
+                    </span>
+                  </Button>
+                </a>
+                <p className="text-center text-2xs text-muted-foreground">
+                  {t("setup.install.dragOpenHint")}
+                </p>
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                disabled={syncing}
-                onClick={() => {
-                  void (async () => {
-                    if (!claimed) {
-                      const ok = await syncToServer();
-                      if (!ok) return;
-                    }
-                    navigate(`/${mark}`);
-                  })();
-                }}
-              >
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                {t("setup.install.open", { mark })}
-              </Button>
               <Button
                 type="button"
                 size="sm"

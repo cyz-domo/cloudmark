@@ -454,89 +454,217 @@
   }
 }
 
-/* Quick-start: drag bookmarklet micro-demo */
-@keyframes drag-chip-fly {
+/* Quick-start: two-chip drag-to-bookmarks-bar micro-demo (6.4s loop)
+ * Chips sit in the same CSS grid columns as the bar slots, so they only
+ * need a pure vertical flight (~5.15rem) into the matching slot.
+ *
+ * Timeline:
+ *  0–8%   rest
+ *  8–28%  chip A flies into left slot
+ * 28–36%  chip A settles / ghost A solid
+ * 36–56%  chip B flies into right slot
+ * 56–74%  both settled (hold)
+ * 74–86%  fade ghosts, reset chips
+ * 86–100% rest at origin
+ */
+@keyframes drag-chip-a-fly {
   0%,
+  8% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  /* slight lift + grab */
   12% {
-    transform: translate(-50%, 0) scale(1);
+    transform: translateY(-0.45rem) scale(1.05);
     opacity: 1;
   }
-  45%,
-  58% {
-    transform: translate(-50%, -4.35rem) scale(0.92);
+  /* land in bar slot (chip near page bottom → bar row ≈ 7.6rem) */
+  26%,
+  32% {
+    transform: translateY(-7.6rem) scale(0.88);
     opacity: 1;
   }
-  62% {
-    transform: translate(-50%, -4.35rem) scale(0.7);
+  35% {
+    transform: translateY(-7.6rem) scale(0.7);
     opacity: 0;
   }
-  63%,
+  36%,
   100% {
-    transform: translate(-50%, 0) scale(1);
+    transform: translateY(0) scale(1);
     opacity: 0;
   }
 }
 
-@keyframes drag-ghost-pop {
+@keyframes drag-chip-b-fly {
   0%,
-  44% {
-    opacity: 0;
-    transform: scale(0.85);
-  }
-  52%,
-  78% {
+  36% {
+    transform: translateY(0) scale(1);
     opacity: 1;
-    transform: scale(1);
   }
-  90%,
-  100% {
-    opacity: 0.35;
-    transform: scale(1);
-  }
-}
-
-@keyframes drag-slot-pulse {
-  0%,
   40% {
-    border-color: hsl(var(--primary) / 0.35);
-    background-color: hsl(var(--background) / 0.6);
+    transform: translateY(-0.45rem) scale(1.05);
+    opacity: 1;
   }
-  50%,
+  54%,
   70% {
-    border-color: hsl(var(--primary) / 0.75);
-    background-color: hsl(var(--primary) / 0.12);
+    transform: translateY(-7.6rem) scale(0.88);
+    opacity: 1;
   }
+  74% {
+    transform: translateY(-7.6rem) scale(0.7);
+    opacity: 0;
+  }
+  75%,
   100% {
-    border-color: hsl(var(--primary) / 0.35);
-    background-color: hsl(var(--background) / 0.6);
+    transform: translateY(0) scale(1);
+    opacity: 0;
   }
 }
 
-.drag-demo-chip {
-  animation: drag-chip-fly 3.2s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+@keyframes drag-ghost-a-pop {
+  0%,
+  24% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  30%,
+  74% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  84%,
+  100% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
 }
 
-.drag-demo-ghost {
-  animation: drag-ghost-pop 3.2s ease infinite;
+@keyframes drag-ghost-b-pop {
+  0%,
+  52% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  58%,
+  74% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  84%,
+  100% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
 }
 
-.drag-demo-slot {
-  animation: drag-slot-pulse 3.2s ease infinite;
+@keyframes drag-slot-a-pulse {
+  0%,
+  10% {
+    border-color: hsl(var(--primary) / 0.3);
+    background-color: hsl(var(--background) / 0.5);
+    box-shadow: none;
+  }
+  16%,
+  32% {
+    border-color: hsl(var(--primary) / 0.9);
+    background-color: hsl(var(--primary) / 0.16);
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.14);
+  }
+  38%,
+  74% {
+    border-style: solid;
+    border-color: hsl(var(--primary) / 0.4);
+    background-color: hsl(var(--primary) / 0.08);
+    box-shadow: none;
+  }
+  86%,
+  100% {
+    border-style: dashed;
+    border-color: hsl(var(--primary) / 0.3);
+    background-color: hsl(var(--background) / 0.5);
+  }
+}
+
+@keyframes drag-slot-b-pulse {
+  0%,
+  38% {
+    border-color: hsl(var(--primary) / 0.3);
+    background-color: hsl(var(--background) / 0.5);
+    box-shadow: none;
+  }
+  44%,
+  60% {
+    border-color: hsl(var(--primary) / 0.9);
+    background-color: hsl(var(--primary) / 0.16);
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.14);
+  }
+  66%,
+  74% {
+    border-style: solid;
+    border-color: hsl(var(--primary) / 0.4);
+    background-color: hsl(var(--primary) / 0.08);
+    box-shadow: none;
+  }
+  86%,
+  100% {
+    border-style: dashed;
+    border-color: hsl(var(--primary) / 0.3);
+    background-color: hsl(var(--background) / 0.5);
+  }
+}
+
+.drag-demo-page {
+  overflow: visible;
+}
+
+.drag-demo-chip-a,
+.drag-demo-chip-b {
+  z-index: 3;
+  will-change: transform, opacity;
+}
+
+.drag-demo-chip-a {
+  animation: drag-chip-a-fly 6.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.drag-demo-chip-b {
+  animation: drag-chip-b-fly 6.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.drag-demo-ghost-a {
+  animation: drag-ghost-a-pop 6.4s ease infinite;
+}
+
+.drag-demo-ghost-b {
+  animation: drag-ghost-b-pop 6.4s ease infinite;
+}
+
+.drag-demo-slot-a {
+  animation: drag-slot-a-pulse 6.4s ease infinite;
+}
+
+.drag-demo-slot-b {
+  animation: drag-slot-b-pulse 6.4s ease infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drag-demo-chip,
-  .drag-demo-ghost,
-  .drag-demo-slot {
+  .drag-demo-chip-a,
+  .drag-demo-chip-b,
+  .drag-demo-ghost-a,
+  .drag-demo-ghost-b,
+  .drag-demo-slot-a,
+  .drag-demo-slot-b {
     animation: none;
   }
 
-  .drag-demo-chip {
+  .drag-demo-chip-a,
+  .drag-demo-chip-b {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: none;
   }
 
-  .drag-demo-ghost {
+  .drag-demo-ghost-a,
+  .drag-demo-ghost-b {
     opacity: 1;
   }
 }

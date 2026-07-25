@@ -71,9 +71,19 @@
       "install": {
         "bookmarksBar": "书签栏",
         "saveChip": "保存",
-        "dragHint": "把按钮拖到浏览器书签栏",
+        "saveChipNamed": "保存到 {mark}",
+        "openChip": "打开书签收藏",
+        "dragHint": "把两个按钮都拖到浏览器书签栏",
+        "tipSave": "拖入「保存到 {mark}」— 在任意网页一键收藏",
+        "tipOpen": "拖入「打开书签收藏」— 快速回到你的集合",
+        "dragBoth": "请将下面两个按钮都拖到浏览器书签栏",
+        "itemSave": "① 保存书签",
+        "itemOpen": "② 打开收藏",
         "saveButton": "保存到 {mark}",
-        "dragTip": "将紫色按钮拖到书签栏",
+        "openCollection": "打开书签收藏",
+        "dragSaveHint": "拖到书签栏，浏览网页时点击即可保存",
+        "dragOpenHint": "拖到书签栏，随时打开你的集合",
+        "dragTip": "将两个按钮都拖到书签栏",
         "open": "打开 /{mark}",
         "copyCode": "复制代码"
       }

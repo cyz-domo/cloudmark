@@ -71,9 +71,19 @@
       "install": {
         "bookmarksBar": "Bookmarks bar",
         "saveChip": "Save",
-        "dragHint": "Drag the button up into your bookmarks bar",
+        "saveChipNamed": "Save to {mark}",
+        "openChip": "Open collection",
+        "dragHint": "Drag both buttons into your browser bookmarks bar",
+        "tipSave": "Drag in “Save to {mark}” — one-click save from any page",
+        "tipOpen": "Drag in “Open collection” — jump back to your bookmarks",
+        "dragBoth": "Drag both buttons below into your bookmarks bar",
+        "itemSave": "① Save bookmark",
+        "itemOpen": "② Open collection",
         "saveButton": "Save to {mark}",
-        "dragTip": "Drag the purple button to your bookmarks bar",
+        "openCollection": "Open collection",
+        "dragSaveHint": "Drag to the bar, then click on any page to save",
+        "dragOpenHint": "Drag to the bar to reopen your collection anytime",
+        "dragTip": "Drag both buttons to your bookmarks bar",
         "open": "Open /{mark}",
         "copyCode": "Copy code"
       }
