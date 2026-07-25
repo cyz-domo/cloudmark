@@ -7,12 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "pnpm build && node scripts/deploy-d1.mjs",
+    "deploy": "pnpm build && wrangler deploy",
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv worker-configuration.d.ts",
-    "db:migrate:local": "wrangler d1 migrations apply ${CLOUDMARK_DATABASE_NAME:-cloudmark} --local",
-    "db:migrate:remote": "wrangler d1 migrations apply ${CLOUDMARK_DATABASE_NAME:-cloudmark} --remote"
+    "db:migrate:local": "wrangler d1 migrations apply cloudmark --local",
+    "db:migrate:remote": "wrangler d1 migrations apply cloudmark --remote"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",

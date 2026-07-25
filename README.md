@@ -59,19 +59,13 @@ pnpm install
 
 ### D1 setup
 
-The database name defaults to `cloudmark`. To use another D1 database name, set `CLOUDMARK_DATABASE_NAME` before running migration or deployment:
+1. Create a D1 database with the name you want to use:
 
 ```bash
-export CLOUDMARK_DATABASE_NAME=project-a
+pnpm exec wrangler d1 create cloudmark
 ```
 
-1. Create a D1 database if needed:
-
-```bash
-pnpm exec wrangler d1 create "${CLOUDMARK_DATABASE_NAME:-cloudmark}"
-```
-
-The deployment command automatically reuses an existing database with this name or creates it when missing. It also applies remote migrations before deploying.
+Copy the returned `database_id` into `wrangler.jsonc` under `d1_databases[0]`. To use another database, update both `database_name` and `database_id` there.
 
 3. Apply migrations:
 
@@ -110,7 +104,7 @@ Or from your machine:
 pnpm run deploy
 ```
 
-For Cloudflare build deployments, add `CLOUDMARK_DATABASE_NAME` as a build environment variable when using a non-default database name. The default is `cloudmark`.
+For Cloudflare Git deployments, set the build command to `pnpm run build` and the deploy command to `npx wrangler deploy`. Configure the D1 name and ID in `wrangler.jsonc` before deploying.
 
 ## Cloudflare Configuration
 
@@ -121,12 +115,12 @@ For Cloudflare build deployments, add `CLOUDMARK_DATABASE_NAME` as a build envir
   {
     "binding": "DB",
     "database_name": "cloudmark",
+    "database_id": "your-d1-database-id",
     "migrations_dir": "migrations"
   }
 ]
 ```
 
-`database_id` is resolved and injected into a temporary deployment configuration automatically.
 
 ### Environment Variables
 

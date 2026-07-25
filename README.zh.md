@@ -56,21 +56,13 @@ Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创�
 pnpm install
 ```
 
-`database_id` 会在部署时自动解析，并仅注入临时部署配置，不会写入仓库中的 `wrangler.jsonc`。
-
 ### D1 配置
 
-数据库名称默认是 `cloudmark`。如果需要使用其他 D1 数据库名称，请在迁移或部署前设置 `CLOUDMARK_DATABASE_NAME`：
-
 ```bash
-export CLOUDMARK_DATABASE_NAME=project-a
+pnpm exec wrangler d1 create cloudmark
 ```
 
-```bash
-pnpm exec wrangler d1 create "${CLOUDMARK_DATABASE_NAME:-cloudmark}"
-```
-
-部署命令会自动复用同名数据库，不存在时创建，并在部署前自动执行远程 migrations。无需将 `database_id` 写入 `wrangler.jsonc`。
+将返回的 `database_id` 填入 `wrangler.jsonc` 的 `d1_databases[0]`。如果使用其他数据库名称，同时修改其中的 `database_name` 和 `database_id`。
 
 ### 开发模式
 
@@ -91,7 +83,7 @@ pnpm db:migrate:local && pnpm preview
 pnpm run deploy
 ```
 
-如果使用 Cloudflare 构建部署，并且数据库名称不是默认值，请在构建环境变量中添加 `CLOUDMARK_DATABASE_NAME`。默认值为 `cloudmark`。
+如果通过 Git 连接 Cloudflare 部署，请将构建命令设置为 `pnpm run build`，部署命令设置为 `npx wrangler deploy`，并在部署前确认 `wrangler.jsonc` 中的 D1 数据库名称和 ID 已填写正确。
 
 ## 技术栈
 
