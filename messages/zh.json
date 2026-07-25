@@ -416,6 +416,12 @@
     "importDone": "导入 {imported}，跳过 {skipped}，失败 {failed}",
     "importFailed": "导入失败",
     "importAction": "导入到集合",
+    "targetCategory": "导入分类",
+    "keepSourceCategories": "保留浏览器文件中的分组",
+    "chooseFileFirst": "选择书签文件后可指定导入分类",
+    "selectedCount": "已选 {count} 项",
+    "selectAll": "全选",
+    "clearSelection": "取消全选",
     "clear": "清除",
     "tokenRequired": "导入需要 write token"
   },

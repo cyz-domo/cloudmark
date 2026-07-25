@@ -25,6 +25,7 @@ import {
 import { downloadJson, downloadTextFile } from "@/client/lib/download";
 import { importBookmarksApi } from "@/client/lib/api";
 import { useTranslations } from "@/client/i18n/context";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ImportExportProps {
   mark: string;
@@ -33,6 +34,7 @@ interface ImportExportProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImported: (bookmarks: BookmarkInstance[]) => void;
+  categories: string[];
 }
 
 const CHUNK = 200;
@@ -44,6 +46,7 @@ export function ImportExportDialog({
   open,
   onOpenChange,
   onImported,
+  categories,
 }: ImportExportProps) {
   const t = useTranslations("ImportExport");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -52,11 +55,17 @@ export function ImportExportDialog({
   const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
+  const [targetCategory, setTargetCategory] = useState("parsed");
+  const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(
+    () => new Set(),
+  );
 
   const resetImport = () => {
     setPreview(null);
     setFileName("");
     setProgress("");
+    setTargetCategory("parsed");
+    setSelectedIndexes(new Set());
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -93,6 +102,7 @@ export function ImportExportDialog({
         return;
       }
       setPreview(parsed);
+      setSelectedIndexes(new Set());
       setFileName(file.name);
       toast.message(t("previewReady", { count: parsed.length }));
     } catch (e) {
@@ -101,7 +111,7 @@ export function ImportExportDialog({
   };
 
   const runImport = async () => {
-    if (!preview?.length) return;
+    if (!preview?.length || selectedIndexes.size === 0) return;
     if (!writeToken) {
       toast.error(t("tokenRequired"));
       return;
@@ -113,12 +123,13 @@ export function ImportExportDialog({
     const allNew: BookmarkInstance[] = [];
 
     try {
-      for (let i = 0; i < preview.length; i += CHUNK) {
-        const chunk = preview.slice(i, i + CHUNK);
+      const selected = preview.filter((_, index) => selectedIndexes.has(index));
+      for (let i = 0; i < selected.length; i += CHUNK) {
+        const chunk = selected.slice(i, i + CHUNK);
         setProgress(
           t("importProgress", {
-            current: Math.min(i + chunk.length, preview.length),
-            total: preview.length,
+            current: Math.min(i + chunk.length, selected.length),
+            total: selected.length,
           }),
         );
         const result = await importBookmarksApi({
@@ -129,7 +140,7 @@ export function ImportExportDialog({
             url: b.url,
             title: b.title,
             description: b.description,
-            category: b.category,
+            category: targetCategory === "parsed" ? b.category : targetCategory,
             createdAt:
               b.addDate != null
                 ? new Date(b.addDate * 1000).toISOString()
@@ -161,13 +172,13 @@ export function ImportExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <FileUp className="h-4 w-4" />
             {t("title")}
           </DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
+        <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex gap-1 rounded-md border border-border/60 bg-muted/30 p-0.5">
@@ -194,6 +205,19 @@ export function ImportExportDialog({
             {t("tabImport")}
           </button>
         </div>
+        {tab === "import" && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">{t("targetCategory")}</label>
+            <Select value={targetCategory} onValueChange={setTargetCategory}>
+              <SelectTrigger disabled={!preview}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="parsed">{t("keepSourceCategories")}</SelectItem>
+                {categories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {!preview && <p className="text-2xs text-muted-foreground">{t("chooseFileFirst")}</p>}
+          </div>
+        )}
 
         {tab === "export" && (
           <div className="space-y-3">
@@ -252,21 +276,32 @@ export function ImportExportDialog({
 
             {preview && (
               <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-sm">
-                <p className="font-medium">
-                  {fileName}{" "}
-                  <span className="font-normal text-muted-foreground">
-                    · {t("previewCount", { count: preview.length })}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="min-w-0 truncate font-medium" title={fileName}>
+                    {fileName}{" "}
+                    <span className="font-normal text-muted-foreground">
+                      · {t("previewCount", { count: preview.length })}
+                    </span>
+                  </p>
+                  <span className="shrink-0 text-xs text-primary">
+                    {t("selectedCount", { count: selectedIndexes.size })}
                   </span>
-                </p>
-                <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-2xs text-muted-foreground">
-                  {preview.slice(0, 8).map((b) => (
-                    <li key={b.url} className="truncate">
-                      [{b.category}] {b.title}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setSelectedIndexes(new Set(preview.map((_, index) => index)))} disabled={busy}>
+                    {t("selectAll")}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setSelectedIndexes(new Set())} disabled={busy}>
+                    {t("clearSelection")}
+                  </Button>
+                </div>
+                <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-2xs text-muted-foreground">
+                  {preview.map((b, index) => (
+                    <li key={`${b.url}-${index}`} className="flex min-w-0 items-start gap-2 overflow-hidden rounded px-1 py-1 hover:bg-muted/60">
+                      <input className="mt-0.5 shrink-0" type="checkbox" checked={selectedIndexes.has(index)} disabled={busy} onChange={() => setSelectedIndexes((previous) => { const next = new Set(previous); if (next.has(index)) next.delete(index); else next.add(index); return next; })} />
+                      <span className="block min-w-0 flex-1 truncate" title={`${b.category} / ${b.title}`}>[{b.category}] {b.title}</span>
                     </li>
                   ))}
-                  {preview.length > 8 && (
-                    <li>… +{preview.length - 8}</li>
-                  )}
                 </ul>
                 {progress && (
                   <p className="mt-2 text-2xs text-primary">{progress}</p>
@@ -285,7 +320,7 @@ export function ImportExportDialog({
               </Button>
               <Button
                 size="sm"
-                disabled={busy || !preview || !writeToken}
+                disabled={busy || !preview || selectedIndexes.size === 0 || !writeToken}
                 onClick={() => void runImport()}
               >
                 {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}

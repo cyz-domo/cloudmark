@@ -8,6 +8,9 @@ import {
   updateCollectionSettingsSchema,
   reorderBookmarksSchema,
   updateSchema,
+  deleteManySchema,
+  categoryOrderSchema,
+  categoryMutationSchema,
 } from "@/shared/schema";
 import {
   claimCollection,
@@ -19,6 +22,10 @@ import {
   saveCollectionSettings,
   updateBookmarkRecord,
   reorderCollectionBookmarks,
+  reorderCollectionCategories,
+  renameCollectionCategory,
+  deleteCollectionCategory,
+  deleteBookmarkRecords,
 } from "../services/bookmarks";
 import type { Env } from "../env";
 
@@ -53,6 +60,18 @@ api.post("/collections/reorder", async (c) => {
   } catch (e) {
     return jsonError(c, e instanceof Error ? e.message : "Reorder failed", 400);
   }
+});
+
+api.post("/collections/categories/reorder", async (c) => {
+  try { const parsed = categoryOrderSchema.safeParse(await c.req.json()); if (!parsed.success) return jsonError(c, parsed.error.errors[0]?.message ?? "Invalid input"); await reorderCollectionCategories(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.categories); return c.json({ ok: true }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Category reorder failed", 400); }
+});
+
+api.post("/collections/categories/rename", async (c) => {
+  try { const parsed = categoryMutationSchema.safeParse(await c.req.json()); if (!parsed.success || !parsed.data.name) return jsonError(c, "Invalid input"); await renameCollectionCategory(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.category, parsed.data.name); return c.json({ ok: true }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Category rename failed", 400); }
+});
+
+api.delete("/collections/categories", async (c) => {
+  try { const parsed = categoryMutationSchema.safeParse(await c.req.json()); if (!parsed.success) return jsonError(c, "Invalid input"); const deleted = await deleteCollectionCategory(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.category); return c.json({ ok: true, deleted }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Category delete failed", 400); }
 });
 
 /** POST /api/collections/claim */
@@ -160,6 +179,10 @@ api.delete("/bookmarks/:uuid", async (c) => {
   } catch (e) {
     return jsonError(c, e instanceof Error ? e.message : "Delete failed", 400);
   }
+});
+
+api.post("/bookmarks/delete-many", async (c) => {
+  try { const parsed = deleteManySchema.safeParse(await c.req.json()); if (!parsed.success) return jsonError(c, parsed.error.errors[0]?.message ?? "Invalid input"); const deleted = await deleteBookmarkRecords(c.env.DB, parsed.data); return c.json({ ok: true, deleted }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Delete failed", 400); }
 });
 
 /** POST /api/bookmarks/import — bulk import (HTML/JSON parsed client-side) */

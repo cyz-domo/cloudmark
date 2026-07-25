@@ -130,7 +130,7 @@ export function defaultDirForColumn(column: SortColumn): SortDir {
   return column === "date" ? "desc" : "asc";
 }
 
-export function useBookmarkFilter(bookmarks: BookmarkInstance[]) {
+export function useBookmarkFilter(bookmarks: BookmarkInstance[], categoryOrder: string[] = []) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>(ALL_CATEGORIES);
   const [sortColumn, setSortColumn] = useState<SortColumn>("date");
@@ -145,8 +145,14 @@ export function useBookmarkFilter(bookmarks: BookmarkInstance[]) {
   }, [bookmarks]);
 
   const categories = useMemo(() => {
-    return [...categoryCounts.keys()].sort((a, b) => a.localeCompare(b));
-  }, [categoryCounts]);
+    const discovered = [...categoryCounts.keys()];
+    return [
+      ...categoryOrder,
+      ...discovered
+        .filter((category) => !categoryOrder.includes(category))
+        .sort((a, b) => a.localeCompare(b)),
+    ];
+  }, [categoryCounts, categoryOrder]);
 
   const filtered = useMemo(() => {
     let list = bookmarks;

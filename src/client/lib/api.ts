@@ -119,6 +119,27 @@ export async function deleteBookmarkApi(input: {
   await parseJson<{ ok: boolean }>(res);
 }
 
+export async function deleteBookmarksApi(input: { mark: string; token: string; uuids: string[] }): Promise<void> {
+  const res = await fetch("/api/bookmarks/delete-many", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  await parseJson<{ ok: boolean }>(res);
+}
+
+export async function reorderCategoriesApi(input: { mark: string; token: string; categories: string[] }): Promise<void> {
+  const res = await fetch("/api/collections/categories/reorder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  await parseJson<{ ok: boolean }>(res);
+}
+
+export async function renameCategoryApi(input: { mark: string; token: string; category: string; name: string }): Promise<void> {
+  const res = await fetch("/api/collections/categories/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  await parseJson<{ ok: boolean }>(res);
+}
+
+export async function deleteCategoryApi(input: { mark: string; token: string; category: string }): Promise<number> {
+  const res = await fetch("/api/collections/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  const data = await parseJson<{ deleted: number }>(res);
+  return data.deleted;
+}
+
 export async function regenerateTokenApi(input: {
   mark: string;
   currentToken: string;

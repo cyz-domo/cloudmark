@@ -18,6 +18,7 @@ export interface CollectionRow {
   default_category: string;
   is_public: number;
   background_url: string;
+  category_order: string;
 }
 
 export function rowToSettings(row: CollectionRow): CollectionSettings {
@@ -66,11 +67,52 @@ export async function getCollection(
               COALESCE(default_category, 'default') as default_category,
               COALESCE(is_public, 1) as is_public,
               COALESCE(background_url, '') as background_url
+              ,COALESCE(category_order, '') as category_order
        FROM collections WHERE mark = ?`,
     )
     .bind(mark)
     .first<CollectionRow>();
   return row;
+}
+
+export function getCategoryOrder(row: CollectionRow): string[] {
+  try {
+    const parsed = JSON.parse(row.category_order || "[]");
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function updateCategoryOrder(db: D1Database, mark: string, categories: string[]): Promise<void> {
+  await db.prepare("UPDATE collections SET category_order = ?, updated_at = ? WHERE mark = ?")
+    .bind(JSON.stringify(categories), new Date().toISOString(), mark).run();
+}
+
+export async function renameCategory(db: D1Database, mark: string, from: string, to: string, order: string[]): Promise<void> {
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare("UPDATE bookmarks SET category = ? WHERE mark = ? AND category = ?").bind(to, mark, from),
+    db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? THEN ? ELSE default_category END, updated_at = ? WHERE mark = ?")
+      .bind(JSON.stringify(order), from, to, now, mark),
+  ]);
+}
+
+export async function deleteCategory(db: D1Database, mark: string, category: string, order: string[]): Promise<number> {
+  const results = await db.batch([
+    db.prepare("DELETE FROM bookmarks WHERE mark = ? AND category = ?").bind(mark, category),
+    db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? THEN 'default' ELSE default_category END, updated_at = ? WHERE mark = ?")
+      .bind(JSON.stringify(order), category, new Date().toISOString(), mark),
+  ]);
+  return results[0]?.meta.changes ?? 0;
+}
+
+export async function deleteBookmarks(db: D1Database, mark: string, uuids: string[]): Promise<number> {
+  if (!uuids.length) return 0;
+  const result = await db.batch(uuids.map((uuid) => db.prepare("DELETE FROM bookmarks WHERE mark = ? AND uuid = ?").bind(mark, uuid)));
+  const deleted = result.reduce((sum, item) => sum + (item.meta.changes ?? 0), 0);
+  if (deleted) await touchCollection(db, mark);
+  return deleted;
 }
 
 export async function getBookmarksForMark(

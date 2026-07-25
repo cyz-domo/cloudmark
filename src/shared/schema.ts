@@ -70,6 +70,25 @@ export const deleteSchema = z.object({
   token: tokenSchema,
 });
 
+export const deleteManySchema = z.object({
+  mark: markSchema,
+  token: tokenSchema,
+  uuids: z.array(z.string().min(1).max(64)).min(1).max(100),
+});
+
+export const categoryOrderSchema = z.object({
+  mark: markSchema,
+  token: tokenSchema,
+  categories: z.array(z.string().min(1).max(CATEGORY_MAX_LENGTH)).max(50),
+});
+
+export const categoryMutationSchema = z.object({
+  mark: markSchema,
+  token: tokenSchema,
+  category: z.string().min(1).max(CATEGORY_MAX_LENGTH),
+  name: z.string().min(1).max(CATEGORY_MAX_LENGTH).optional(),
+});
+
 export const collectionSettingsSchema = z.object({
   redirectAfterSave: z.boolean(),
   defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH),

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { getDomain } from "@/shared/utils";
 import type { BookmarkInstance } from "@/shared/types";
-import { deleteBookmarkApi } from "@/client/lib/api";
+import { deleteBookmarksApi } from "@/client/lib/api";
 import { useTranslations } from "@/client/i18n/context";
 
 interface DialogDeleteProps {
@@ -88,21 +88,13 @@ export function DialogDelete({
     setIsSubmitting(true);
     try {
       const uuids = s.bookmarks.map((b) => b.uuid);
-      const results = await Promise.allSettled(
-        uuids.map((uuid) =>
-          deleteBookmarkApi({
-            mark: s.mark,
-            token: s.writeToken!,
-            uuid,
-          }),
-        ),
-      );
       const deleted: string[] = [];
       let failed = 0;
-      results.forEach((r, i) => {
-        if (r.status === "fulfilled") deleted.push(uuids[i]!);
-        else failed += 1;
-      });
+      for (let i = 0; i < uuids.length; i += 100) {
+        const chunk = uuids.slice(i, i + 100);
+        try { await deleteBookmarksApi({ mark: s.mark, token: s.writeToken!, uuids: chunk }); deleted.push(...chunk); }
+        catch { failed += chunk.length; }
+      }
       if (deleted.length > 0) {
         s.onBookmarksDeleted(deleted);
         toast.success(
@@ -113,6 +105,7 @@ export function DialogDelete({
       }
       if (failed > 0) {
         toast.error(s.t("errors.deleteFailedMulti", { count: failed }));
+        return;
       }
       s.onOpenChange(false);
     } catch (e) {

@@ -48,6 +48,8 @@ export interface CollectionPageData {
   settings?: CollectionSettings;
   /** True when collection is private and the request lacked a valid token */
   privateLocked?: boolean;
+  /** Categories in the user's preferred order. */
+  categories?: string[];
 }
 
 export const defaultMark = "default";

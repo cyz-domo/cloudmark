@@ -19,6 +19,7 @@ import {
   Pencil,
   Settings2,
   Trash2,
+  GripVertical,
   Upload,
   X,
 } from "lucide-react";
@@ -32,7 +33,7 @@ import {
   DEFAULT_COLLECTION_SETTINGS,
   isDemoMark,
 } from "@/shared/types";
-import { getBaseUrl, getCategories } from "@/shared/utils";
+import { getBaseUrl } from "@/shared/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,7 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/shared/utils";
-import { claimCollectionApi, fetchCollection, reorderBookmarksApi } from "@/client/lib/api";
+import { claimCollectionApi, fetchCollection, reorderBookmarksApi, reorderCategoriesApi, renameCategoryApi, deleteCategoryApi } from "@/client/lib/api";
 import {
   clearStoredWriteToken,
   ensureLocalWriteToken,
@@ -120,12 +121,17 @@ export function CollectionPage() {
   const [dragOverUuid, setDragOverUuid] = useState<string | null>(null);
   const [pendingOrders, setPendingOrders] = useState<Record<string, string[]>>({});
   const [savingOrder, setSavingOrder] = useState(false);
+  const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
+  const [draggedCategory, setDraggedCategory] = useState<string | null>(null);
+  const [categoryOrderDirty, setCategoryOrderDirty] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const baseUrl = getBaseUrl();
   const bookmarks = data?.bookmarks ?? [];
-  const filter = useBookmarkFilter(bookmarks);
+  const filter = useBookmarkFilter(bookmarks, categoryOrder);
   const {
     filtered,
     query,
@@ -149,6 +155,16 @@ export function CollectionPage() {
       // Ignore storage restrictions.
     }
   }, [mark, setSort]);
+
+  useEffect(() => {
+    if (!categoryOrderDirty || typeof window === "undefined") return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [categoryOrderDirty]);
 
   const selectSort = (next: SortKey) => {
     setSort(next);
@@ -216,18 +232,23 @@ export function CollectionPage() {
   };
 
   const savePendingOrders = async () => {
-    if (!writeToken || !canWrite || Object.keys(pendingOrders).length === 0) return;
+    if (!writeToken || !canWrite || (Object.keys(pendingOrders).length === 0 && !categoryOrderDirty)) return;
     setSavingOrder(true);
     try {
-      await reorderBookmarksApi({
-        mark,
-        token: writeToken,
-        orders: Object.entries(pendingOrders).map(([pendingCategory, uuids]) => ({
-          category: pendingCategory,
-          uuids,
-        })),
-      });
+      if (Object.keys(pendingOrders).length > 0) {
+        await reorderBookmarksApi({
+          mark,
+          token: writeToken,
+          orders: Object.entries(pendingOrders).map(([pendingCategory, uuids]) => ({
+            category: pendingCategory,
+            uuids,
+          })),
+        });
+      }
+      if (categoryOrderDirty) await reorderCategoriesApi({ mark, token: writeToken, categories: filter.categories });
       setPendingOrders({});
+      setCategoryOrder(filter.categories);
+      setCategoryOrderDirty(false);
       toast.success(ts("reorderSaved"));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : ts("reorderFailed"));
@@ -236,10 +257,49 @@ export function CollectionPage() {
     }
   };
 
-  const categories = useMemo(
-    () => (data ? getCategories(data) : ["default"]),
-    [data],
-  );
+  const categories = filter.categories.length ? filter.categories : ["default"];
+
+  const moveCategory = (target: string) => {
+    if (!draggedCategory || draggedCategory === target) return;
+    const next = [...filter.categories];
+    const from = next.indexOf(draggedCategory); const to = next.indexOf(target);
+    if (from < 0 || to < 0) return;
+    next.splice(from, 1); next.splice(to, 0, draggedCategory);
+    setCategoryOrder(next); setCategoryOrderDirty(true); setDraggedCategory(null);
+  };
+
+  const addCategory = async () => {
+    if (!canWrite) return;
+    const name = newCategoryName.trim();
+    if (!name || categories.includes(name)) return;
+    const next = [...categories, name];
+    setAddingCategory(true);
+    try {
+      await reorderCategoriesApi({ mark, token: writeToken!, categories: next });
+      setCategoryOrder(next);
+      setCategoryOrderDirty(false);
+      setNewCategoryName("");
+      toast.success("分类已创建");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "分类创建失败");
+    } finally {
+      setAddingCategory(false);
+    }
+  };
+
+  const renameCurrentCategory = async (cat: string) => {
+    if (!canWrite || cat === "default") return;
+    const name = window.prompt("重命名分类", cat)?.trim();
+    if (!name || name === cat || categories.includes(name)) return;
+    try { await renameCategoryApi({ mark, token: writeToken!, category: cat, name }); setCategoryOrder(categories.map((item) => item === cat ? name : item)); setData((prev) => prev ? { ...prev, bookmarks: prev.bookmarks.map((b) => b.category === cat ? { ...b, category: name } : b) } : prev); toast.success("分类已重命名"); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "分类重命名失败"); }
+  };
+
+  const deleteCurrentCategory = async (cat: string) => {
+    if (!canWrite || cat === "default" || !window.confirm(`删除分类“${cat}”及其中的全部收藏？`)) return;
+    try { await deleteCategoryApi({ mark, token: writeToken!, category: cat }); setCategoryOrder(categories.filter((item) => item !== cat)); setData((prev) => prev ? { ...prev, bookmarks: prev.bookmarks.filter((b) => b.category !== cat) } : prev); if (category === cat) setCategory(ALL_CATEGORIES); toast.success("分类及收藏已删除"); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "分类删除失败"); }
+  };
 
   const dialogOpen =
     addOpen ||
@@ -288,6 +348,7 @@ export function CollectionPage() {
             bookmarks: [],
           },
         );
+        setCategoryOrder(page.categories ?? []);
         setIssuedWriteToken(page.issuedWriteToken);
         setMigratedFromKv(Boolean(page.migratedFromKv));
 
@@ -528,6 +589,7 @@ export function CollectionPage() {
       setPrivateLocked(Boolean(page.privateLocked));
       setSettings(page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS });
       setData(page.bookmarksData ?? { mark, bookmarks: [] });
+      setCategoryOrder(page.categories ?? []);
       setIssuedWriteToken(page.issuedWriteToken);
       setMigratedFromKv(Boolean(page.migratedFromKv));
       if (page.issuedWriteToken) {
@@ -1059,15 +1121,26 @@ export function CollectionPage() {
               onClick={() => setCategory(ALL_CATEGORIES)}
             />
             {filter.categories.map((cat, i) => (
+              <div key={cat} className="group/category relative" draggable={canWrite} onDragStart={() => setDraggedCategory(cat)} onDragOver={(event) => event.preventDefault()} onDrop={() => moveCategory(cat)}>
               <CategoryButton
-                key={cat}
                 active={category === cat}
                 label={cat}
                 count={filter.categoryCounts.get(cat) ?? 0}
                 shortcut={i < 9 ? String(i + 1) : undefined}
                 onClick={() => setCategory(cat)}
+                onRename={cat === "default" ? undefined : () => void renameCurrentCategory(cat)}
+                onDelete={cat === "default" ? undefined : () => void deleteCurrentCategory(cat)}
               />
+              </div>
             ))}
+            {canWrite ? (
+              <form className="mt-1 flex gap-1" onSubmit={(event) => { event.preventDefault(); void addCategory(); }}>
+                <Input value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="新建分类" className="h-8 min-w-0 text-xs" maxLength={50} disabled={addingCategory} />
+                <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2" disabled={!newCategoryName.trim() || addingCategory}>＋</Button>
+              </form>
+            ) : (
+              <p className="mt-1 px-2 py-1.5 text-2xs text-muted-foreground">演示集合为只读</p>
+            )}
           </nav>
         </aside>
 
@@ -1127,7 +1200,7 @@ export function CollectionPage() {
               </SelectContent>
             </Select>
 
-            {manualSort && Object.keys(pendingOrders).length > 0 && (
+            {(Object.keys(pendingOrders).length > 0 || categoryOrderDirty) && (
               <>
                 <span className="text-2xs text-amber-600 dark:text-amber-400">
                   {ts("reorderUnsaved")}
@@ -1406,6 +1479,7 @@ export function CollectionPage() {
         open={importExportOpen}
         onOpenChange={setImportExportOpen}
         onImported={onImported}
+        categories={categories}
       />
       {!isDemoMark(mark) && (
         <CollectionSettingsDialog
@@ -1427,17 +1501,23 @@ function CategoryButton({
   count,
   shortcut,
   onClick,
+  onRename,
+  onDelete,
 }: {
   active: boolean;
   label: string;
   count: number;
   shortcut?: string;
   onClick: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } }}
       aria-current={active ? "true" : undefined}
       className={cn(
         "group/cat flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -1446,6 +1526,7 @@ function CategoryButton({
           : "text-muted-foreground hover:bg-muted/90 hover:text-foreground",
       )}
     >
+      <GripVertical className="h-3 w-3 shrink-0 opacity-40" aria-hidden />
       <span
         className={cn(
           "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
@@ -1474,7 +1555,9 @@ function CategoryButton({
           {shortcut}
         </kbd>
       ) : null}
-    </button>
+      {onRename && <button type="button" className="ml-1 hidden text-[10px] opacity-60 group-hover/cat:inline" onClick={(event) => { event.stopPropagation(); onRename(); }}>改</button>}
+      {onDelete && <button type="button" className="hidden text-[10px] text-destructive opacity-70 group-hover/cat:inline" onClick={(event) => { event.stopPropagation(); onDelete(); }}>删</button>}
+    </div>
   );
 }
 

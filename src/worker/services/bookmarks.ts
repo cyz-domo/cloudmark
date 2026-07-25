@@ -18,6 +18,11 @@ import {
   updateCollectionSettings,
   reorderBookmarks,
   updateCollectionToken,
+  getCategoryOrder,
+  updateCategoryOrder,
+  renameCategory,
+  deleteCategory,
+  deleteBookmarks,
 } from "@/shared/db";
 import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
 import type { ImportItemSchema } from "@/shared/schema";
@@ -66,6 +71,7 @@ export async function getCollectionPageData(
       bookmarksData: DEMO_BOOKMARKS_DATA,
       exists: true,
       settings: { ...DEFAULT_COLLECTION_SETTINGS },
+      categories: [],
     };
   }
 
@@ -94,6 +100,9 @@ export async function getCollectionPageData(
     }
 
     const bookmarksData = await getBookmarksData(db, mark);
+    const discovered = [...new Set((bookmarksData?.bookmarks ?? []).map((bookmark) => bookmark.category))];
+    const saved = getCategoryOrder(existing);
+    const categories = [...saved, ...discovered.filter((category) => !saved.includes(category))];
     // Collections with token_delivered=0: issue write token once on first open
     if (existing.token_delivered === 0) {
       const issuedWriteToken = generateWriteToken();
@@ -106,6 +115,7 @@ export async function getCollectionPageData(
         settings,
         issuedWriteToken,
         migratedFromKv: existing.migrated_from_kv === 1,
+        categories,
       };
     }
     return {
@@ -113,6 +123,7 @@ export async function getCollectionPageData(
       exists: true,
       settings,
       migratedFromKv: existing.migrated_from_kv === 1,
+      categories,
     };
   }
 
@@ -126,6 +137,41 @@ export async function getCollectionPageData(
     exists: false,
     settings: { ...DEFAULT_COLLECTION_SETTINGS },
   };
+}
+
+async function requireCollectionWrite(db: D1Database, mark: string, token: string) {
+  await requireWriteAccess(db, mark, token, `collection:${mark}`);
+  const collection = await getCollection(db, mark);
+  if (!collection) throw new Error("Collection not found");
+  return collection;
+}
+
+export async function reorderCollectionCategories(db: D1Database, mark: string, token: string, categories: string[]) {
+  await requireCollectionWrite(db, mark, token);
+  if (new Set(categories).size !== categories.length) throw new Error("分类列表不匹配");
+  await updateCategoryOrder(db, mark, categories);
+}
+
+export async function renameCollectionCategory(db: D1Database, mark: string, token: string, from: string, to: string) {
+  const collection = await requireCollectionWrite(db, mark, token);
+  if (from === defaultCategory || to === defaultCategory) throw new Error("default 分类不能重命名");
+  if (from === to) return;
+  const categories = new Set([...getCategoryOrder(collection), ...(await getBookmarksForMark(db, mark)).map((bookmark) => bookmark.category)]);
+  if (!categories.has(from) || categories.has(to)) throw new Error("分类不存在或名称已存在");
+  await renameCategory(db, mark, from, to, getCategoryOrder(collection).map((category) => category === from ? to : category));
+}
+
+export async function deleteCollectionCategory(db: D1Database, mark: string, token: string, category: string) {
+  const collection = await requireCollectionWrite(db, mark, token);
+  if (category === defaultCategory) throw new Error("default 分类不能删除");
+  const categories = new Set([...getCategoryOrder(collection), ...(await getBookmarksForMark(db, mark)).map((bookmark) => bookmark.category)]);
+  if (!categories.has(category)) throw new Error("分类不存在");
+  return deleteCategory(db, mark, category, getCategoryOrder(collection).filter((item) => item !== category));
+}
+
+export async function deleteBookmarkRecords(db: D1Database, input: { mark: string; token: string; uuids: string[] }) {
+  await requireCollectionWrite(db, input.mark, input.token);
+  return deleteBookmarks(db, input.mark, input.uuids);
 }
 
 async function requireWriteAccess(

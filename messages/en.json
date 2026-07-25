@@ -416,6 +416,12 @@
     "importDone": "Imported {imported}, skipped {skipped}, failed {failed}",
     "importFailed": "Import failed",
     "importAction": "Import into collection",
+    "targetCategory": "Import category",
+    "keepSourceCategories": "Keep folders from the browser file",
+    "chooseFileFirst": "Choose a bookmark file to select an import category",
+    "selectedCount": "{count} selected",
+    "selectAll": "Select all",
+    "clearSelection": "Clear selection",
     "clear": "Clear",
     "tokenRequired": "Write token required to import"
   },
