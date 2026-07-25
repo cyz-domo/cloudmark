@@ -5,8 +5,12 @@ import { resolve } from "node:path";
 
 const databaseName = "cloudmark";
 const repositoryRoot = process.cwd();
-const baseConfigPath = resolve(repositoryRoot, "wrangler.jsonc");
-const temporaryConfigPath = resolve(repositoryRoot, `.wrangler-cloudmark-${randomUUID()}.jsonc`);
+const generatedConfigPath = resolve(repositoryRoot, "dist/cloudmark/wrangler.json");
+const temporaryConfigPath = resolve(
+  repositoryRoot,
+  "dist/cloudmark",
+  `.wrangler-cloudmark-${randomUUID()}.json`,
+);
 
 function runWrangler(args) {
   return execFileSync("wrangler", args, {
@@ -49,29 +53,36 @@ function findDatabaseId() {
 }
 
 function createTemporaryConfig(databaseId) {
-  const config = readFileSync(baseConfigPath, "utf8");
-  const databaseBinding =
-    /(\"binding\"\s*:\s*\"DB\"\s*,\s*\n\s*\"database_name\"\s*:\s*\"cloudmark\"\s*,)/;
-
-  if (!databaseBinding.test(config)) {
-    throw new Error("无法在 wrangler.jsonc 中找到 DB/cloudmark D1 binding。");
-  }
-
-  if (/\"database_id\"\s*:/.test(config)) {
-    throw new Error("wrangler.jsonc 不应包含固定的 database_id。");
-  }
-
-  const temporaryConfig = config.replace(
-    databaseBinding,
-    `$1\n      "database_id": "${databaseId}",`,
+  const config = JSON.parse(readFileSync(generatedConfigPath, "utf8"));
+  const databaseBindings = config.d1_databases?.filter(
+    (database) => database.binding === "DB" && database.database_name === databaseName,
   );
-  writeFileSync(temporaryConfigPath, temporaryConfig);
+
+  if (databaseBindings?.length !== 1) {
+    throw new Error("无法在构建生成的 Wrangler 配置中找到 DB/cloudmark D1 binding。");
+  }
+
+  databaseBindings[0].database_id = databaseId;
+  writeFileSync(temporaryConfigPath, JSON.stringify(config, null, 2));
 }
 
 try {
   const databaseId = findDatabaseId();
   process.stdout.write(`使用 D1 数据库 ${databaseName}（${databaseId}）。\n`);
+  try {
+    readFileSync(generatedConfigPath, "utf8");
+  } catch {
+    throw new Error("未找到 Vite 生成的 Wrangler 配置，请先执行 pnpm build。");
+  }
   createTemporaryConfig(databaseId);
+  execFileSync(
+    "wrangler",
+    ["d1", "migrations", "apply", databaseName, "--remote", "--config", temporaryConfigPath],
+    {
+      cwd: repositoryRoot,
+      stdio: "inherit",
+    },
+  );
   execFileSync("wrangler", ["deploy", "--config", temporaryConfigPath], {
     cwd: repositoryRoot,
     stdio: "inherit",
