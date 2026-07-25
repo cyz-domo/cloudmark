@@ -59,15 +59,28 @@ pnpm install
 
 ### D1 setup
 
-1. Create a D1 database with the name you want to use:
+1. Create a D1 database first. Use the database name you want to use:
 
 ```bash
 pnpm exec wrangler d1 create cloudmark
 ```
 
-Copy the returned `database_id` into `wrangler.jsonc` under `d1_databases[0]`. To use another database, update both `database_name` and `database_id` there. The migration commands use the `DB` binding from this configuration.
+2. Copy the returned database ID and update `wrangler.jsonc`:
 
-3. Apply migrations:
+```jsonc
+"d1_databases": [
+  {
+    "binding": "DB",
+    "database_name": "cloudmark",
+    "database_id": "the-database-id-from-the-previous-command",
+    "migrations_dir": "migrations"
+  }
+]
+```
+
+If you created a different database name, update both `database_name` and `database_id` to match that database.
+
+3. Apply migrations to the configured database:
 
 ```bash
 # local (Miniflare)
@@ -104,7 +117,12 @@ Or from your machine:
 pnpm run deploy
 ```
 
-For Cloudflare Git deployments, set the build command to `pnpm run cf:build` and the deploy command to `npx wrangler deploy`. The Cloudflare build command applies remote D1 migrations before deployment. Configure the D1 name and ID in `wrangler.jsonc` before deploying.
+For Cloudflare Git deployments, complete the D1 setup above first, commit the updated `wrangler.jsonc`, and then configure the Cloudflare project as follows:
+
+- Build command: `pnpm run cf:build`
+- Deploy command: `npx wrangler deploy`
+
+The Cloudflare build command builds the project and applies pending remote migrations to the D1 database configured by the `DB` binding. The deploy command then publishes the Worker using the same `wrangler.jsonc`.
 
 ## Cloudflare Configuration
 

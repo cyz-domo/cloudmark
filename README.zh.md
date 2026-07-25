@@ -58,11 +58,32 @@ pnpm install
 
 ### D1 配置
 
+1. 先创建 D1 数据库，数据库名称使用你希望的名称：
+
 ```bash
 pnpm exec wrangler d1 create cloudmark
 ```
 
-将返回的 `database_id` 填入 `wrangler.jsonc` 的 `d1_databases[0]`。如果使用其他数据库名称，同时修改其中的 `database_name` 和 `database_id`。迁移命令会使用该配置中的 `DB` binding，因此数据库改名后无需再修改命令。
+2. 复制命令返回的数据库 ID，修改仓库中的 `wrangler.jsonc`：
+
+```jsonc
+"d1_databases": [
+  {
+    "binding": "DB",
+    "database_name": "cloudmark",
+    "database_id": "上一步返回的数据库 ID",
+    "migrations_dir": "migrations"
+  }
+]
+```
+
+如果创建时使用了其他数据库名称，需要同时修改 `database_name` 和 `database_id`，确保它们属于同一个数据库。
+
+3. 将迁移应用到配置的数据库：
+
+```bash
+pnpm db:migrate:remote
+```
 
 ### 开发模式
 
@@ -83,7 +104,12 @@ pnpm db:migrate:local && pnpm preview
 pnpm run deploy
 ```
 
-如果通过 Git 连接 Cloudflare 部署，请将构建命令设置为 `pnpm run cf:build`，部署命令设置为 `npx wrangler deploy`。该构建命令会在部署前执行远程 D1 migrations；并请确认 `wrangler.jsonc` 中的 D1 数据库名称和 ID 已填写正确。
+如果通过 Git 连接 Cloudflare 部署，请先完成上面的 D1 配置，并提交已修改的 `wrangler.jsonc`，然后在 Cloudflare 项目中设置：
+
+- 构建命令：`pnpm run cf:build`
+- 部署命令：`npx wrangler deploy`
+
+Cloudflare 构建命令会先构建项目，再将未执行的远程 migrations 应用到 `DB` binding 配置的数据库；随后部署命令使用同一份 `wrangler.jsonc` 发布 Worker。
 
 ## 技术栈
 
