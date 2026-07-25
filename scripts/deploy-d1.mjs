@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const databaseName = "cloudmark";
+const databaseName = process.env.CLOUDMARK_DATABASE_NAME?.trim() || "cloudmark";
 const repositoryRoot = process.cwd();
 const generatedConfigPath = resolve(repositoryRoot, "dist/cloudmark/wrangler.json");
 const temporaryConfigPath = resolve(
@@ -54,14 +54,13 @@ function findDatabaseId() {
 
 function createTemporaryConfig(databaseId) {
   const config = JSON.parse(readFileSync(generatedConfigPath, "utf8"));
-  const databaseBindings = config.d1_databases?.filter(
-    (database) => database.binding === "DB" && database.database_name === databaseName,
-  );
+  const databaseBindings = config.d1_databases?.filter((database) => database.binding === "DB");
 
   if (databaseBindings?.length !== 1) {
-    throw new Error("无法在构建生成的 Wrangler 配置中找到 DB/cloudmark D1 binding。");
+    throw new Error("无法在构建生成的 Wrangler 配置中找到唯一的 DB D1 binding。");
   }
 
+  databaseBindings[0].database_name = databaseName;
   databaseBindings[0].database_id = databaseId;
   writeFileSync(temporaryConfigPath, JSON.stringify(config, null, 2));
 }
