@@ -83,6 +83,12 @@ import { TokenUnlockForm } from "@/client/components/token-unlock-form";
 import { ImportExportDialog } from "@/client/components/import-export";
 import { CollectionSettingsDialog } from "@/client/components/collection-settings-dialog";
 
+function renameCategoryPath(path: string, from: string, to: string): string {
+  return path === from || path.startsWith(`${from} / `)
+    ? `${to}${path.slice(from.length)}`
+    : path;
+}
+
 export function CollectionPage() {
   const params = useParams<{ mark: string }>();
   const location = useLocation();
@@ -294,7 +300,19 @@ export function CollectionPage() {
     if (!canWrite || cat === "default") return;
     const name = window.prompt("重命名分类", cat)?.trim();
     if (!name || name === cat || categories.includes(name)) return;
-    try { await renameCategoryApi({ mark, token: writeToken!, category: cat, name }); setCategoryOrder(categories.map((item) => item === cat ? name : item)); setData((prev) => prev ? { ...prev, bookmarks: prev.bookmarks.map((b) => b.category === cat ? { ...b, category: name } : b) } : prev); toast.success("分类已重命名"); }
+    try {
+      await renameCategoryApi({ mark, token: writeToken!, category: cat, name });
+      setCategoryOrder((previous) => [...new Set(previous.map((item) => renameCategoryPath(item, cat, name)))]);
+      setData((prev) => prev ? {
+        ...prev,
+        bookmarks: prev.bookmarks.map((bookmark) => ({
+          ...bookmark,
+          category: renameCategoryPath(bookmark.category, cat, name),
+        })),
+      } : prev);
+      setCategory((current) => current === ALL_CATEGORIES ? current : renameCategoryPath(current, cat, name));
+      toast.success("分类已重命名");
+    }
     catch (e) { toast.error(e instanceof Error ? e.message : "分类重命名失败"); }
   };
 
