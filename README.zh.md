@@ -83,7 +83,7 @@ pnpm db:migrate:local && pnpm preview
 pnpm run deploy
 ```
 
-如果通过 Git 连接 Cloudflare 部署，请将构建命令设置为 `pnpm run build`，部署命令设置为 `npx wrangler deploy`，并在部署前确认 `wrangler.jsonc` 中的 D1 数据库名称和 ID 已填写正确。
+如果通过 Git 连接 Cloudflare 部署，请将构建命令设置为 `pnpm run cf:build`，部署命令设置为 `npx wrangler deploy`。该构建命令会在部署前执行远程 D1 migrations；并请确认 `wrangler.jsonc` 中的 D1 数据库名称和 ID 已填写正确。
 
 ## 技术栈
 

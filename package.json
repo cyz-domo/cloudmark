@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "cf:build": "pnpm run build && pnpm db:migrate:remote",
     "preview": "vite preview",
     "deploy": "pnpm build && wrangler deploy",
     "lint": "eslint .",

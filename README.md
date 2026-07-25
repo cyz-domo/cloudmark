@@ -104,7 +104,7 @@ Or from your machine:
 pnpm run deploy
 ```
 
-For Cloudflare Git deployments, set the build command to `pnpm run build` and the deploy command to `npx wrangler deploy`. Configure the D1 name and ID in `wrangler.jsonc` before deploying.
+For Cloudflare Git deployments, set the build command to `pnpm run cf:build` and the deploy command to `npx wrangler deploy`. The Cloudflare build command applies remote D1 migrations before deployment. Configure the D1 name and ID in `wrangler.jsonc` before deploying.
 
 ## Cloudflare Configuration
 
