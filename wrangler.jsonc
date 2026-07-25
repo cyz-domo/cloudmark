@@ -4,7 +4,7 @@
  */
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "cloudmark-1",
+  "name": "cloudmark",
   "compatibility_date": "2025-04-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./src/worker/index.ts",
@@ -22,8 +22,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "cloudmark-1",
-      "database_id": "9e4d41e9-3c0d-43e7-9455-160b2c205b01",
+      "database_name": "cloudmark",
+      "database_id": "f3103f6e-2f65-41e8-b699-463b49564092",
       "migrations_dir": "migrations",
     },
   ],
