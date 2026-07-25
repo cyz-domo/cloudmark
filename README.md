@@ -65,7 +65,7 @@ pnpm install
 pnpm exec wrangler d1 create cloudmark
 ```
 
-Copy the returned `database_id` into `wrangler.jsonc` under `d1_databases[0]`. To use another database, update both `database_name` and `database_id` there.
+Copy the returned `database_id` into `wrangler.jsonc` under `d1_databases[0]`. To use another database, update both `database_name` and `database_id` there. The migration commands use the `DB` binding from this configuration.
 
 3. Apply migrations:
 

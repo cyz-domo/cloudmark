@@ -62,7 +62,7 @@ pnpm install
 pnpm exec wrangler d1 create cloudmark
 ```
 
-将返回的 `database_id` 填入 `wrangler.jsonc` 的 `d1_databases[0]`。如果使用其他数据库名称，同时修改其中的 `database_name` 和 `database_id`。
+将返回的 `database_id` 填入 `wrangler.jsonc` 的 `d1_databases[0]`。如果使用其他数据库名称，同时修改其中的 `database_name` 和 `database_id`。迁移命令会使用该配置中的 `DB` binding，因此数据库改名后无需再修改命令。
 
 ### 开发模式
 
