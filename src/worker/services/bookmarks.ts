@@ -48,6 +48,8 @@ import {
   isDemoMark,
 } from "@/shared/types";
 
+const FIXED_HOME_SORTS = new Set(["newest", "oldest", "title", "title-desc", "category", "category-desc", "url", "url-desc"]);
+
 export async function getFavicon(url: string, size: number = 64) {
   try {
     const domain = new URL(url).hostname.replace(/^www\./, "");
@@ -328,7 +330,7 @@ export async function saveCollectionSettings(
     homeCategory: (patch.homeCategory ?? rowToSettings(existing).homeCategory).trim(),
     homeSortProfile: (patch.homeSortProfile ?? rowToSettings(existing).homeSortProfile).trim(),
   };
-  if (next.homeSortProfile && !(await sortProfileBelongsToCollection(db, mark, next.homeSortProfile))) {
+  if (next.homeSortProfile && !FIXED_HOME_SORTS.has(next.homeSortProfile) && !(await sortProfileBelongsToCollection(db, mark, next.homeSortProfile))) {
     throw new Error("Sort profile not found");
   }
   await updateCollectionSettings(db, mark, next);

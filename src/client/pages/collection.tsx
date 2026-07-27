@@ -47,7 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/shared/utils";
-import { claimCollectionApi, fetchCollection, reorderBookmarksApi, reorderCategoriesApi, renameCategoryApi, deleteCategoryApi, saveSortProfileOrdersApi } from "@/client/lib/api";
+import { claimCollectionApi, fetchCollection, reorderBookmarksApi, reorderCategoriesApi, renameCategoryApi, deleteCategoryApi, saveSortProfileOrdersApi, createSortProfileApi, renameSortProfileApi, deleteSortProfileApi } from "@/client/lib/api";
 import {
   clearStoredWriteToken,
   ensureLocalWriteToken,
@@ -89,6 +89,9 @@ function renameCategoryPath(path: string, from: string, to: string): string {
     ? `${to}${path.slice(from.length)}`
     : path;
 }
+
+const FIXED_SORT_KEYS: SortKey[] = ["newest", "oldest", "title", "title-desc", "category", "category-desc", "url", "url-desc"];
+function isFixedSortKey(value: string): value is SortKey { return FIXED_SORT_KEYS.includes(value as SortKey); }
 
 function applySortProfile(bookmarks: BookmarkInstance[], profile?: SortProfile): BookmarkInstance[] {
   if (!profile) return bookmarks;
@@ -133,6 +136,7 @@ export function CollectionPage() {
     ...DEFAULT_COLLECTION_SETTINGS,
   });
   const [sortProfiles, setSortProfiles] = useState<SortProfile[]>([]);
+  const [activeSortProfileId, setActiveSortProfileId] = useState<string | null>(null);
   const [privateLocked, setPrivateLocked] = useState(false);
   const [draggedUuid, setDraggedUuid] = useState<string | null>(null);
   const [dragOverUuid, setDragOverUuid] = useState<string | null>(null);
@@ -173,13 +177,33 @@ export function CollectionPage() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [categoryOrderDirty]);
 
-  const selectSort = (next: SortKey) => {
-    setSort(next);
+  const selectHomeSort = (value: string) => {
+    const profile = sortProfiles.find((item) => item.id === value);
+    setActiveSortProfileId(profile?.id ?? null);
+    setSort(profile ? "manual" : isFixedSortKey(value) ? value : "newest");
+    setData((previous) => previous && profile ? { ...previous, bookmarks: applySortProfile(previous.bookmarks, profile) } : previous);
+  };
+
+  const manageSortProfile = async (action: "create" | "rename" | "delete") => {
+    if (!writeToken) return;
+    const current = sortProfiles.find((profile) => profile.id === activeSortProfileId);
+    const input = window.prompt(action === "create" ? "新建排序方案名称" : action === "rename" ? "重命名排序方案" : `输入“${current?.name ?? ""}”确认删除`, action === "rename" ? current?.name ?? "" : "")?.trim();
+    if (!input || (action === "delete" && input !== current?.name) || (action !== "create" && !current)) return;
     try {
-      localStorage.setItem(`cloudmark:sort:${mark}`, next);
-    } catch {
-      // Ignore storage restrictions.
-    }
+      if (action === "create") {
+        const profile = await createSortProfileApi({ mark, token: writeToken, id: crypto.randomUUID(), name: input });
+        setSortProfiles((previous) => [...previous, profile]);
+        selectHomeSort(profile.id);
+      } else if (action === "rename" && current) {
+        await renameSortProfileApi({ mark, token: writeToken, id: current.id, name: input });
+        setSortProfiles((previous) => previous.map((profile) => profile.id === current.id ? { ...profile, name: input } : profile));
+      } else if (current) {
+        await deleteSortProfileApi({ mark, token: writeToken, id: current.id });
+        setSortProfiles((previous) => previous.filter((profile) => profile.id !== current.id));
+        setActiveSortProfileId(null);
+        setSort("newest");
+      }
+    } catch (error) { toast.error(error instanceof Error ? error.message : "排序方案操作失败"); }
   };
 
   useEffect(() => {
@@ -247,15 +271,15 @@ export function CollectionPage() {
             category: pendingCategory,
             uuids,
           }));
-        if (settings.homeSortProfile) {
+        if (activeSortProfileId) {
           const pending = new Map(orders.map((order) => [order.category, order.uuids]));
-          const profile = sortProfiles.find((item) => item.id === settings.homeSortProfile);
+          const profile = sortProfiles.find((item) => item.id === activeSortProfileId);
           const existing = new Map(profile?.orders.map((order) => [order.category, order.uuids]));
           const allOrders = [...new Set(bookmarks.map((bookmark) => bookmark.category))].map((category) => ({
             category,
             uuids: pending.get(category) ?? existing.get(category) ?? bookmarks.filter((bookmark) => bookmark.category === category).map((bookmark) => bookmark.uuid),
           }));
-          await saveSortProfileOrdersApi({ mark, token: writeToken, id: settings.homeSortProfile, orders: allOrders });
+          await saveSortProfileOrdersApi({ mark, token: writeToken, id: activeSortProfileId, orders: allOrders });
         } else {
           await reorderBookmarksApi({ mark, token: writeToken, orders });
         }
@@ -384,13 +408,17 @@ export function CollectionPage() {
         if (cancelled) return;
 
         setCollectionExists(Boolean(page.exists));
-        setSettings(page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS });
-        setData(
-          page.bookmarksData ?? {
-            mark,
-            bookmarks: [],
-          },
-        );
+        const nextSettings = page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS };
+        const nextProfiles = page.sortProfiles ?? [];
+        const nextProfile = nextProfiles.find((profile) => profile.id === nextSettings.homeSortProfile);
+        setSettings(nextSettings);
+        setSortProfiles(nextProfiles);
+        setActiveSortProfileId(nextProfile?.id ?? null);
+        setCategory(nextSettings.homeCategory || ALL_CATEGORIES);
+        setSort(nextProfile ? "manual" : isFixedSortKey(nextSettings.homeSortProfile) ? nextSettings.homeSortProfile : "newest");
+        setData(nextProfile && page.bookmarksData
+          ? { ...page.bookmarksData, bookmarks: applySortProfile(page.bookmarksData.bookmarks, nextProfile) }
+          : page.bookmarksData ?? { mark, bookmarks: [] });
         setCategoryOrder(page.categories ?? []);
         setIssuedWriteToken(page.issuedWriteToken);
         setMigratedFromKv(Boolean(page.migratedFromKv));
@@ -483,8 +511,14 @@ export function CollectionPage() {
       const token = writeToken ?? getStoredWriteToken(mark);
       void fetchCollection(mark, token)
         .then((page) => {
-          if (page.bookmarksData) setData(page.bookmarksData);
-          if (page.settings) setSettings(page.settings);
+          if (page.settings) {
+            const nextProfile = page.sortProfiles?.find((profile) => profile.id === page.settings?.homeSortProfile);
+            setSettings(page.settings);
+            setCategory(page.settings.homeCategory || ALL_CATEGORIES);
+            setActiveSortProfileId(nextProfile?.id ?? null);
+            setSort(nextProfile ? "manual" : isFixedSortKey(page.settings.homeSortProfile) ? page.settings.homeSortProfile : "newest");
+            if (page.bookmarksData) setData({ ...page.bookmarksData, bookmarks: nextProfile ? applySortProfile(page.bookmarksData.bookmarks, nextProfile) : page.bookmarksData.bookmarks });
+          } else if (page.bookmarksData) setData(page.bookmarksData);
         })
         .catch(() => {
           /* ignore refresh errors */
@@ -630,11 +664,13 @@ export function CollectionPage() {
     (page: Awaited<ReturnType<typeof fetchCollection>>, token: string | null) => {
       setCollectionExists(Boolean(page.exists));
       setPrivateLocked(Boolean(page.privateLocked));
-      setSettings(page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS });
-      setCategory(page.settings?.homeCategory || ALL_CATEGORIES);
+      const nextSettings = page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS };
+      setSettings(nextSettings);
+      setCategory(nextSettings.homeCategory || ALL_CATEGORIES);
       setSortProfiles(page.sortProfiles ?? []);
-      const profile = page.sortProfiles?.find((item) => item.id === page.settings?.homeSortProfile);
-      setSort(profile ? "manual" : "newest");
+      const profile = page.sortProfiles?.find((item) => item.id === nextSettings.homeSortProfile);
+      setActiveSortProfileId(profile?.id ?? null);
+      setSort(profile ? "manual" : isFixedSortKey(nextSettings.homeSortProfile) ? nextSettings.homeSortProfile : "newest");
       setData(page.bookmarksData ? { ...page.bookmarksData, bookmarks: applySortProfile(page.bookmarksData.bookmarks, profile) } : { mark, bookmarks: [] });
       setCategoryOrder(page.categories ?? []);
       setIssuedWriteToken(page.issuedWriteToken);
@@ -1230,7 +1266,7 @@ export function CollectionPage() {
               </SelectContent>
             </Select>
 
-            <Select value={sort} onValueChange={(v) => selectSort(v as SortKey)}>
+            <Select value={activeSortProfileId ?? sort} onValueChange={selectHomeSort}>
               <SelectTrigger className="h-8 w-[8.5rem] text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -1248,8 +1284,16 @@ export function CollectionPage() {
                 </SelectItem>
                 <SelectItem value="url">{ts("sortUrlAsc")}</SelectItem>
                 <SelectItem value="url-desc">{ts("sortUrlDesc")}</SelectItem>
+                {sortProfiles.length > 0 && sortProfiles.map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>)}
               </SelectContent>
             </Select>
+            {canWrite && (
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => void manageSortProfile("create")}>＋</Button>
+                <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!activeSortProfileId} onClick={() => void manageSortProfile("rename")}>✎</Button>
+                <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!activeSortProfileId} onClick={() => void manageSortProfile("delete")}>×</Button>
+              </div>
+            )}
 
             {(Object.keys(pendingOrders).length > 0 || categoryOrderDirty) && (
               <>
@@ -1541,12 +1585,12 @@ export function CollectionPage() {
           settings={settings}
           categories={categories}
           sortProfiles={sortProfiles}
-          onProfilesChange={setSortProfiles}
           onSaved={(next) => {
             setSettings(next);
             setCategory(next.homeCategory || ALL_CATEGORIES);
             const profile = sortProfiles.find((item) => item.id === next.homeSortProfile);
-            setSort(profile ? "manual" : "newest");
+            setActiveSortProfileId(profile?.id ?? null);
+            setSort(profile ? "manual" : isFixedSortKey(next.homeSortProfile) ? next.homeSortProfile : "newest");
             setData((previous) => previous ? { ...previous, bookmarks: applySortProfile(previous.bookmarks, profile) } : previous);
           }}
         />
