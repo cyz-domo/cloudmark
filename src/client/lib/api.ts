@@ -46,6 +46,7 @@ export async function updateCollectionSettingsApi(input: {
   token: string;
   redirectAfterSave?: boolean;
   defaultCategory?: string;
+  homeCategory?: string;
   isPublic?: boolean;
   backgroundUrl?: string;
 }): Promise<CollectionSettings> {

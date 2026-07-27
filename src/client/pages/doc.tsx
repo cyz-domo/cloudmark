@@ -361,6 +361,7 @@ export function DocPage() {
               setSettings(next);
               setClaimed(false);
             }}
+            categories={[]}
             disabled={syncing}
           />
           <div className="mt-4 flex justify-center">

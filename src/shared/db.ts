@@ -16,6 +16,7 @@ export interface CollectionRow {
   token_delivered: number;
   redirect_after_save: number;
   default_category: string;
+  home_category: string;
   is_public: number;
   background_url: string;
   category_order: string;
@@ -25,6 +26,7 @@ export function rowToSettings(row: CollectionRow): CollectionSettings {
   return {
     redirectAfterSave: row.redirect_after_save !== 0,
     defaultCategory: row.default_category || DEFAULT_COLLECTION_SETTINGS.defaultCategory,
+    homeCategory: row.home_category || "",
     isPublic: row.is_public !== 0,
     backgroundUrl: row.background_url || "",
   };
@@ -65,6 +67,7 @@ export async function getCollection(
               COALESCE(token_delivered, 1) as token_delivered,
               COALESCE(redirect_after_save, 1) as redirect_after_save,
               COALESCE(default_category, 'default') as default_category,
+              COALESCE(home_category, '') as home_category,
               COALESCE(is_public, 1) as is_public,
               COALESCE(background_url, '') as background_url
               ,COALESCE(category_order, '') as category_order
@@ -89,20 +92,20 @@ export async function updateCategoryOrder(db: D1Database, mark: string, categori
     .bind(JSON.stringify(categories), new Date().toISOString(), mark).run();
 }
 
-export async function renameCategory(db: D1Database, mark: string, from: string, to: string, paths: string[], order: string[], defaultCategory: string): Promise<void> {
+export async function renameCategory(db: D1Database, mark: string, from: string, to: string, paths: string[], order: string[], defaultCategory: string, homeCategory: string): Promise<void> {
   const now = new Date().toISOString();
   await db.batch([
     ...paths.map((path) => db.prepare("UPDATE bookmarks SET category = ? WHERE mark = ? AND category = ?").bind(path === from ? to : `${to} / ${path.slice(from.length + 3)}`, mark, path)),
-    db.prepare("UPDATE collections SET category_order = ?, default_category = ?, updated_at = ? WHERE mark = ?")
-      .bind(JSON.stringify(order), defaultCategory, now, mark),
+    db.prepare("UPDATE collections SET category_order = ?, default_category = ?, home_category = ?, updated_at = ? WHERE mark = ?")
+      .bind(JSON.stringify(order), defaultCategory, homeCategory, now, mark),
   ]);
 }
 
 export async function deleteCategory(db: D1Database, mark: string, category: string, paths: string[], order: string[]): Promise<number> {
   const results = await db.batch([
     ...paths.map((path) => db.prepare("DELETE FROM bookmarks WHERE mark = ? AND category = ?").bind(mark, path)),
-    db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? OR default_category LIKE ? THEN 'default' ELSE default_category END, updated_at = ? WHERE mark = ?")
-      .bind(JSON.stringify(order), category, `${category} / %`, new Date().toISOString(), mark),
+    db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? OR default_category LIKE ? THEN 'default' ELSE default_category END, home_category = CASE WHEN home_category = ? OR home_category LIKE ? THEN '' ELSE home_category END, updated_at = ? WHERE mark = ?")
+      .bind(JSON.stringify(order), category, `${category} / %`, category, `${category} / %`, new Date().toISOString(), mark),
   ]);
   return results.reduce((total, result) => total + (result.meta.changes ?? 0), 0);
 }
@@ -181,8 +184,8 @@ export async function createCollection(
     .prepare(
       `INSERT INTO collections
         (mark, write_token_hash, created_at, updated_at, migrated_from_kv, token_delivered,
-         redirect_after_save, default_category, is_public, background_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         redirect_after_save, default_category, home_category, is_public, background_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       mark,
@@ -193,6 +196,7 @@ export async function createCollection(
       delivered,
       settings.redirectAfterSave ? 1 : 0,
       settings.defaultCategory || defaultCategory,
+      settings.homeCategory || "",
       settings.isPublic ? 1 : 0,
       settings.backgroundUrl || "",
     )
@@ -210,6 +214,7 @@ export async function updateCollectionSettings(
       `UPDATE collections
        SET redirect_after_save = ?,
            default_category = ?,
+           home_category = ?,
            is_public = ?,
            background_url = ?,
            updated_at = ?
@@ -218,6 +223,7 @@ export async function updateCollectionSettings(
     .bind(
       settings.redirectAfterSave ? 1 : 0,
       settings.defaultCategory || defaultCategory,
+      settings.homeCategory || "",
       settings.isPublic ? 1 : 0,
       settings.backgroundUrl || "",
       now,

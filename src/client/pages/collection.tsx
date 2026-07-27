@@ -310,6 +310,11 @@ export function CollectionPage() {
           category: renameCategoryPath(bookmark.category, cat, name),
         })),
       } : prev);
+      setSettings((previous) => ({
+        ...previous,
+        defaultCategory: renameCategoryPath(previous.defaultCategory, cat, name),
+        homeCategory: renameCategoryPath(previous.homeCategory, cat, name),
+      }));
       setCategory((current) => current === ALL_CATEGORIES ? current : renameCategoryPath(current, cat, name));
       toast.success("分类已重命名");
     }
@@ -318,7 +323,18 @@ export function CollectionPage() {
 
   const deleteCurrentCategory = async (cat: string) => {
     if (!canWrite || cat === "default" || !window.confirm(`删除分类“${cat}”及其中的全部收藏？`)) return;
-    try { await deleteCategoryApi({ mark, token: writeToken!, category: cat }); setCategoryOrder(categories.filter((item) => item !== cat)); setData((prev) => prev ? { ...prev, bookmarks: prev.bookmarks.filter((b) => b.category !== cat) } : prev); if (category === cat) setCategory(ALL_CATEGORIES); toast.success("分类及收藏已删除"); }
+    try {
+      await deleteCategoryApi({ mark, token: writeToken!, category: cat });
+      setCategoryOrder(categories.filter((item) => item !== cat));
+      setData((prev) => prev ? { ...prev, bookmarks: prev.bookmarks.filter((b) => b.category !== cat) } : prev);
+      setSettings((previous) => ({
+        ...previous,
+        defaultCategory: isCategoryInTree(previous.defaultCategory, cat) ? "default" : previous.defaultCategory,
+        homeCategory: isCategoryInTree(previous.homeCategory, cat) ? "" : previous.homeCategory,
+      }));
+      if (isCategoryInTree(category, cat)) setCategory(ALL_CATEGORIES);
+      toast.success("分类及收藏已删除");
+    }
     catch (e) { toast.error(e instanceof Error ? e.message : "分类删除失败"); }
   };
 
@@ -609,6 +625,7 @@ export function CollectionPage() {
       setCollectionExists(Boolean(page.exists));
       setPrivateLocked(Boolean(page.privateLocked));
       setSettings(page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS });
+      setCategory(page.settings?.homeCategory || ALL_CATEGORIES);
       setData(page.bookmarksData ?? { mark, bookmarks: [] });
       setCategoryOrder(page.categories ?? []);
       setIssuedWriteToken(page.issuedWriteToken);
@@ -1513,7 +1530,11 @@ export function CollectionPage() {
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           settings={settings}
-          onSaved={setSettings}
+          categories={categories}
+          onSaved={(next) => {
+            setSettings(next);
+            setCategory(next.homeCategory || ALL_CATEGORIES);
+          }}
         />
       )}
     </div>

@@ -22,6 +22,7 @@ interface CollectionSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: CollectionSettings;
+  categories: string[];
   onSaved: (settings: CollectionSettings) => void;
 }
 
@@ -31,6 +32,7 @@ export function CollectionSettingsDialog({
   open,
   onOpenChange,
   settings,
+  categories,
   onSaved,
 }: CollectionSettingsDialogProps) {
   const t = useTranslations("CollectionSettings");
@@ -54,6 +56,7 @@ export function CollectionSettingsDialog({
         ...draft,
         defaultCategory: draft.defaultCategory.trim() || "default",
         backgroundUrl: draft.backgroundUrl.trim(),
+        homeCategory: draft.homeCategory.trim(),
       });
       onSaved(next);
       toast.success(t("saved"));
@@ -81,6 +84,7 @@ export function CollectionSettingsDialog({
         <CollectionSettingsFields
           value={draft}
           onChange={setDraft}
+          categories={categories}
           disabled={saving || !writeToken}
         />
 

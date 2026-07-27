@@ -165,7 +165,11 @@ export async function renameCollectionCategory(db: D1Database, mark: string, tok
   const nextDefault = currentDefault === from || currentDefault.startsWith(`${from} / `)
     ? `${to}${currentDefault.slice(from.length)}`
     : currentDefault;
-  await renameCategory(db, mark, from, to, paths, order, nextDefault);
+  const currentHome = collection.home_category || "";
+  const nextHome = currentHome === from || currentHome.startsWith(`${from} / `)
+    ? `${to}${currentHome.slice(from.length)}`
+    : currentHome;
+  await renameCategory(db, mark, from, to, paths, order, nextDefault, nextHome);
 }
 
 export async function deleteCollectionCategory(db: D1Database, mark: string, token: string, category: string) {
@@ -284,6 +288,7 @@ export async function saveCollectionSettings(
     defaultCategory:
       (patch.defaultCategory ?? rowToSettings(existing).defaultCategory).trim() ||
       defaultCategory,
+    homeCategory: (patch.homeCategory ?? rowToSettings(existing).homeCategory).trim(),
   };
   await updateCollectionSettings(db, mark, next);
   return next;

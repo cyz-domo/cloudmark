@@ -20,6 +20,7 @@ export interface CollectionSettings {
   redirectAfterSave: boolean;
   /** Category applied to bookmarklet saves */
   defaultCategory: string;
+  homeCategory: string;
   /** If false, only viewers with the write token can open the collection */
   isPublic: boolean;
   /** Optional external image URL used as the collection background */
@@ -29,6 +30,7 @@ export interface CollectionSettings {
 export const DEFAULT_COLLECTION_SETTINGS: CollectionSettings = {
   redirectAfterSave: true,
   defaultCategory: "default",
+  homeCategory: "",
   isPublic: true,
   backgroundUrl: "",
 };

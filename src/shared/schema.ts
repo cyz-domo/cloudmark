@@ -92,6 +92,7 @@ export const categoryMutationSchema = z.object({
 export const collectionSettingsSchema = z.object({
   redirectAfterSave: z.boolean(),
   defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH),
+  homeCategory: z.string().max(CATEGORY_MAX_LENGTH),
   isPublic: z.boolean(),
   backgroundUrl: z.string().url().max(5 * 1024 * 1024).refine((value) => /^https?:\/\//i.test(value), "Background URL must start with http:// or https://").or(z.literal("")).default(""),
 });
@@ -101,6 +102,7 @@ export const updateCollectionSettingsSchema = z.object({
   token: tokenSchema,
   redirectAfterSave: z.boolean().optional(),
   defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH).optional(),
+  homeCategory: z.string().max(CATEGORY_MAX_LENGTH).optional(),
   isPublic: z.boolean().optional(),
   backgroundUrl: z.string().url().max(5 * 1024 * 1024).refine((value) => /^https?:\/\//i.test(value), "Background URL must start with http:// or https://").optional().or(z.literal("")),
 });
