@@ -2,6 +2,7 @@ import type {
   BookmarkInstance,
   CollectionPageData,
   CollectionSettings,
+  SortProfile,
 } from "@/shared/types";
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -49,6 +50,7 @@ export async function updateCollectionSettingsApi(input: {
   homeCategory?: string;
   isPublic?: boolean;
   backgroundUrl?: string;
+  homeSortProfile?: string;
 }): Promise<CollectionSettings> {
   const res = await fetch("/api/collections/settings", {
     method: "PUT",
@@ -57,6 +59,20 @@ export async function updateCollectionSettingsApi(input: {
   });
   const data = await parseJson<{ settings: CollectionSettings }>(res);
   return data.settings;
+}
+
+export async function createSortProfileApi(input: { mark: string; token: string; id: string; name: string }): Promise<SortProfile> {
+  const res = await fetch("/api/collections/sort-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  return (await parseJson<{ profile: SortProfile }>(res)).profile;
+}
+export async function renameSortProfileApi(input: { mark: string; token: string; id: string; name: string }): Promise<void> {
+  const res = await fetch(`/api/collections/sort-profiles/${encodeURIComponent(input.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); await parseJson(res);
+}
+export async function deleteSortProfileApi(input: { mark: string; token: string; id: string }): Promise<void> {
+  const res = await fetch(`/api/collections/sort-profiles/${encodeURIComponent(input.id)}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); await parseJson(res);
+}
+export async function saveSortProfileOrdersApi(input: { mark: string; token: string; id: string; orders: Array<{ category: string; uuids: string[] }> }): Promise<void> {
+  const res = await fetch("/api/collections/sort-profiles/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); await parseJson(res);
 }
 
 export async function reorderBookmarksApi(input: {

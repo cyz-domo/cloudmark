@@ -23,6 +23,12 @@ import {
   renameCategory,
   deleteCategory,
   deleteBookmarks,
+  getSortProfiles,
+  createSortProfile,
+  renameSortProfile,
+  deleteSortProfile,
+  updateSortProfileOrders,
+  sortProfileBelongsToCollection,
 } from "@/shared/db";
 import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
 import type { ImportItemSchema } from "@/shared/schema";
@@ -72,6 +78,7 @@ export async function getCollectionPageData(
       exists: true,
       settings: { ...DEFAULT_COLLECTION_SETTINGS },
       categories: [],
+      sortProfiles: [],
     };
   }
 
@@ -99,6 +106,8 @@ export async function getCollectionPageData(
       }
     }
 
+    const sortProfiles = await getSortProfiles(db, mark);
+
     const bookmarksData = await getBookmarksData(db, mark);
     const discovered = [...new Set((bookmarksData?.bookmarks ?? []).map((bookmark) => bookmark.category))];
     const saved = getCategoryOrder(existing);
@@ -116,6 +125,7 @@ export async function getCollectionPageData(
         issuedWriteToken,
         migratedFromKv: existing.migrated_from_kv === 1,
         categories,
+        sortProfiles,
       };
     }
     return {
@@ -124,6 +134,7 @@ export async function getCollectionPageData(
       settings,
       migratedFromKv: existing.migrated_from_kv === 1,
       categories,
+      sortProfiles,
     };
   }
 
@@ -179,6 +190,32 @@ export async function deleteCollectionCategory(db: D1Database, mark: string, tok
   if (!categories.has(category) && ![...categories].some((item) => item.startsWith(`${category} / `))) throw new Error("分类不存在");
   const paths = [...categories].filter((item) => item === category || item.startsWith(`${category} / `));
   return deleteCategory(db, mark, category, paths, getCategoryOrder(collection).filter((item) => !paths.includes(item)));
+}
+
+export async function listCollectionSortProfiles(db: D1Database, mark: string, token: string) {
+  await requireWriteAccess(db, mark, token, `sort-profiles:${mark}`);
+  return getSortProfiles(db, mark);
+}
+
+export async function createCollectionSortProfile(db: D1Database, mark: string, token: string, id: string, name: string) {
+  await requireWriteAccess(db, mark, token, `sort-profiles:${mark}`);
+  return createSortProfile(db, mark, id, name);
+}
+
+export async function renameCollectionSortProfile(db: D1Database, mark: string, token: string, id: string, name: string) {
+  await requireWriteAccess(db, mark, token, `sort-profiles:${mark}`);
+  if (!(await renameSortProfile(db, mark, id, name))) throw new Error("Sort profile not found");
+}
+
+export async function deleteCollectionSortProfile(db: D1Database, mark: string, token: string, id: string) {
+  await requireWriteAccess(db, mark, token, `sort-profiles:${mark}`);
+  await deleteSortProfile(db, mark, id);
+}
+
+export async function saveCollectionSortProfileOrders(db: D1Database, mark: string, token: string, id: string, orders: Array<{ category: string; uuids: string[] }>) {
+  await requireWriteAccess(db, mark, token, `sort-profiles:${mark}`);
+  if (!(await sortProfileBelongsToCollection(db, mark, id))) throw new Error("Sort profile not found");
+  await updateSortProfileOrders(db, mark, id, orders);
 }
 
 export async function deleteBookmarkRecords(db: D1Database, input: { mark: string; token: string; uuids: string[] }) {
@@ -289,7 +326,11 @@ export async function saveCollectionSettings(
       (patch.defaultCategory ?? rowToSettings(existing).defaultCategory).trim() ||
       defaultCategory,
     homeCategory: (patch.homeCategory ?? rowToSettings(existing).homeCategory).trim(),
+    homeSortProfile: (patch.homeSortProfile ?? rowToSettings(existing).homeSortProfile).trim(),
   };
+  if (next.homeSortProfile && !(await sortProfileBelongsToCollection(db, mark, next.homeSortProfile))) {
+    throw new Error("Sort profile not found");
+  }
   await updateCollectionSettings(db, mark, next);
   return next;
 }

@@ -362,6 +362,7 @@ export function DocPage() {
               setClaimed(false);
             }}
             categories={[]}
+            sortProfiles={[]}
             disabled={syncing}
           />
           <div className="mt-4 flex justify-center">

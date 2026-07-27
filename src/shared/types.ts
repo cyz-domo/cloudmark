@@ -21,6 +21,8 @@ export interface CollectionSettings {
   /** Category applied to bookmarklet saves */
   defaultCategory: string;
   homeCategory: string;
+  /** Named sort profile used on the collection home page; empty means fixed default sort */
+  homeSortProfile: string;
   /** If false, only viewers with the write token can open the collection */
   isPublic: boolean;
   /** Optional external image URL used as the collection background */
@@ -31,6 +33,7 @@ export const DEFAULT_COLLECTION_SETTINGS: CollectionSettings = {
   redirectAfterSave: true,
   defaultCategory: "default",
   homeCategory: "",
+  homeSortProfile: "",
   isPublic: true,
   backgroundUrl: "",
 };
@@ -52,6 +55,13 @@ export interface CollectionPageData {
   privateLocked?: boolean;
   /** Categories in the user's preferred order. */
   categories?: string[];
+  sortProfiles?: SortProfile[];
+}
+
+export interface SortProfile {
+  id: string;
+  name: string;
+  orders: Array<{ category: string; uuids: string[] }>;
 }
 
 export const defaultMark = "default";

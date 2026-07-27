@@ -2,6 +2,7 @@ import type {
   BookmarkInstance,
   BookmarksData,
   CollectionSettings,
+  SortProfile,
 } from "./types";
 import { DEFAULT_COLLECTION_SETTINGS, defaultCategory } from "./types";
 import { MAX_BOOKMARKS_PER_MARK } from "./constants";
@@ -20,6 +21,7 @@ export interface CollectionRow {
   is_public: number;
   background_url: string;
   category_order: string;
+  home_sort_profile: string;
 }
 
 export function rowToSettings(row: CollectionRow): CollectionSettings {
@@ -27,6 +29,7 @@ export function rowToSettings(row: CollectionRow): CollectionSettings {
     redirectAfterSave: row.redirect_after_save !== 0,
     defaultCategory: row.default_category || DEFAULT_COLLECTION_SETTINGS.defaultCategory,
     homeCategory: row.home_category || "",
+    homeSortProfile: row.home_sort_profile || "",
     isPublic: row.is_public !== 0,
     backgroundUrl: row.background_url || "",
   };
@@ -68,6 +71,7 @@ export async function getCollection(
               COALESCE(redirect_after_save, 1) as redirect_after_save,
               COALESCE(default_category, 'default') as default_category,
               COALESCE(home_category, '') as home_category,
+              COALESCE(home_sort_profile, '') as home_sort_profile,
               COALESCE(is_public, 1) as is_public,
               COALESCE(background_url, '') as background_url
               ,COALESCE(category_order, '') as category_order
@@ -92,12 +96,60 @@ export async function updateCategoryOrder(db: D1Database, mark: string, categori
     .bind(JSON.stringify(categories), new Date().toISOString(), mark).run();
 }
 
+export async function getSortProfiles(db: D1Database, mark: string): Promise<SortProfile[]> {
+  const profiles = await db.prepare("SELECT id, name FROM sort_profiles WHERE mark = ? ORDER BY name ASC").bind(mark).all<{ id: string; name: string }>();
+  const result: SortProfile[] = [];
+  for (const profile of profiles.results ?? []) {
+    const items = await db.prepare("SELECT category, uuid FROM sort_profile_items WHERE profile_id = ? ORDER BY category ASC, sort_order ASC").bind(profile.id).all<{ category: string; uuid: string }>();
+    const grouped = new Map<string, string[]>();
+    for (const item of items.results ?? []) grouped.set(item.category, [...(grouped.get(item.category) ?? []), item.uuid]);
+    result.push({ id: profile.id, name: profile.name, orders: [...grouped].map(([category, uuids]) => ({ category, uuids })) });
+  }
+  return result;
+}
+
+export async function sortProfileBelongsToCollection(db: D1Database, mark: string, id: string): Promise<boolean> {
+  const row = await db.prepare("SELECT 1 AS found FROM sort_profiles WHERE id = ? AND mark = ?").bind(id, mark).first<{ found: number }>();
+  return Boolean(row);
+}
+
+export async function createSortProfile(db: D1Database, mark: string, id: string, name: string): Promise<SortProfile> {
+  const now = new Date().toISOString();
+  await db.prepare("INSERT INTO sort_profiles (id, mark, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)").bind(id, mark, name, now, now).run();
+  return { id, name, orders: [] };
+}
+
+export async function renameSortProfile(db: D1Database, mark: string, id: string, name: string): Promise<boolean> {
+  const result = await db.prepare("UPDATE sort_profiles SET name = ?, updated_at = ? WHERE id = ? AND mark = ?").bind(name, new Date().toISOString(), id, mark).run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function deleteSortProfile(db: D1Database, mark: string, id: string): Promise<void> {
+  await db.batch([
+    db.prepare("DELETE FROM sort_profile_items WHERE profile_id = ? AND mark = ?").bind(id, mark),
+    db.prepare("DELETE FROM sort_profiles WHERE id = ? AND mark = ?").bind(id, mark),
+    db.prepare("UPDATE collections SET home_sort_profile = CASE WHEN home_sort_profile = ? THEN '' ELSE home_sort_profile END, updated_at = ? WHERE mark = ?").bind(id, new Date().toISOString(), mark),
+  ]);
+}
+
+export async function updateSortProfileOrders(db: D1Database, mark: string, id: string, orders: Array<{ category: string; uuids: string[] }>): Promise<void> {
+  const now = new Date().toISOString();
+  const statements = [
+    db.prepare("DELETE FROM sort_profile_items WHERE profile_id = ? AND mark = ?").bind(id, mark),
+    ...orders.flatMap((order) => order.uuids.map((uuid, index) => db.prepare("INSERT INTO sort_profile_items (profile_id, mark, category, uuid, sort_order) SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM sort_profiles WHERE id = ? AND mark = ?) AND EXISTS (SELECT 1 FROM bookmarks WHERE uuid = ? AND mark = ? AND category = ?)").bind(id, mark, order.category, uuid, index, id, mark, uuid, mark, order.category))),
+    db.prepare("UPDATE sort_profiles SET updated_at = ? WHERE id = ? AND mark = ?").bind(now, id, mark),
+  ];
+  await db.batch(statements);
+}
+
 export async function renameCategory(db: D1Database, mark: string, from: string, to: string, paths: string[], order: string[], defaultCategory: string, homeCategory: string): Promise<void> {
   const now = new Date().toISOString();
   await db.batch([
     ...paths.map((path) => db.prepare("UPDATE bookmarks SET category = ? WHERE mark = ? AND category = ?").bind(path === from ? to : `${to} / ${path.slice(from.length + 3)}`, mark, path)),
     db.prepare("UPDATE collections SET category_order = ?, default_category = ?, home_category = ?, updated_at = ? WHERE mark = ?")
       .bind(JSON.stringify(order), defaultCategory, homeCategory, now, mark),
+    ...paths.map((path) => db.prepare("UPDATE sort_profile_items SET category = ? WHERE mark = ? AND category = ?")
+      .bind(path === from ? to : `${to}${path.slice(from.length)}`, mark, path)),
   ]);
 }
 
@@ -106,14 +158,19 @@ export async function deleteCategory(db: D1Database, mark: string, category: str
     ...paths.map((path) => db.prepare("DELETE FROM bookmarks WHERE mark = ? AND category = ?").bind(mark, path)),
     db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? OR default_category LIKE ? THEN 'default' ELSE default_category END, home_category = CASE WHEN home_category = ? OR home_category LIKE ? THEN '' ELSE home_category END, updated_at = ? WHERE mark = ?")
       .bind(JSON.stringify(order), category, `${category} / %`, category, `${category} / %`, new Date().toISOString(), mark),
+    db.prepare("DELETE FROM sort_profile_items WHERE mark = ? AND (category = ? OR category LIKE ?)")
+      .bind(mark, category, `${category} / %`),
   ]);
   return results.reduce((total, result) => total + (result.meta.changes ?? 0), 0);
 }
 
 export async function deleteBookmarks(db: D1Database, mark: string, uuids: string[]): Promise<number> {
   if (!uuids.length) return 0;
-  const result = await db.batch(uuids.map((uuid) => db.prepare("DELETE FROM bookmarks WHERE mark = ? AND uuid = ?").bind(mark, uuid)));
-  const deleted = result.reduce((sum, item) => sum + (item.meta.changes ?? 0), 0);
+  const result = await db.batch([
+    ...uuids.map((uuid) => db.prepare("DELETE FROM bookmarks WHERE mark = ? AND uuid = ?").bind(mark, uuid)),
+    ...uuids.map((uuid) => db.prepare("DELETE FROM sort_profile_items WHERE mark = ? AND uuid = ?").bind(mark, uuid)),
+  ]);
+  const deleted = result.slice(0, uuids.length).reduce((sum, item) => sum + (item.meta.changes ?? 0), 0);
   if (deleted) await touchCollection(db, mark);
   return deleted;
 }
@@ -184,8 +241,8 @@ export async function createCollection(
     .prepare(
       `INSERT INTO collections
         (mark, write_token_hash, created_at, updated_at, migrated_from_kv, token_delivered,
-         redirect_after_save, default_category, home_category, is_public, background_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         redirect_after_save, default_category, home_category, home_sort_profile, is_public, background_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       mark,
@@ -197,6 +254,7 @@ export async function createCollection(
       settings.redirectAfterSave ? 1 : 0,
       settings.defaultCategory || defaultCategory,
       settings.homeCategory || "",
+      settings.homeSortProfile || "",
       settings.isPublic ? 1 : 0,
       settings.backgroundUrl || "",
     )
@@ -215,6 +273,7 @@ export async function updateCollectionSettings(
        SET redirect_after_save = ?,
            default_category = ?,
            home_category = ?,
+           home_sort_profile = ?,
            is_public = ?,
            background_url = ?,
            updated_at = ?
@@ -224,6 +283,7 @@ export async function updateCollectionSettings(
       settings.redirectAfterSave ? 1 : 0,
       settings.defaultCategory || defaultCategory,
       settings.homeCategory || "",
+      settings.homeSortProfile || "",
       settings.isPublic ? 1 : 0,
       settings.backgroundUrl || "",
       now,
@@ -379,6 +439,7 @@ export async function deleteBookmark(
     .bind(uuid, mark)
     .run();
   if (result.meta.changes > 0) {
+    await db.prepare("DELETE FROM sort_profile_items WHERE mark = ? AND uuid = ?").bind(mark, uuid).run();
     await touchCollection(db, mark);
     return true;
   }

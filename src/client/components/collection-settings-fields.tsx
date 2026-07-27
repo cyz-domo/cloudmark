@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/shared/utils";
-import type { CollectionSettings } from "@/shared/types";
+import type { CollectionSettings, SortProfile } from "@/shared/types";
 import { useTranslations } from "@/client/i18n/context";
 
 interface CollectionSettingsFieldsProps {
@@ -16,6 +16,7 @@ interface CollectionSettingsFieldsProps {
   onChange: (next: CollectionSettings) => void;
   disabled?: boolean;
   categories: string[];
+  sortProfiles: SortProfile[];
   className?: string;
 }
 
@@ -24,6 +25,7 @@ export function CollectionSettingsFields({
   onChange,
   disabled,
   categories,
+  sortProfiles,
   className,
 }: CollectionSettingsFieldsProps) {
   const t = useTranslations("CollectionSettings");
@@ -105,6 +107,15 @@ export function CollectionSettingsFields({
           </SelectContent>
         </Select>
         <p className="mt-1.5 text-2xs text-muted-foreground">{t("homeCategoryHint")}</p>
+        <label className="mb-1.5 mt-3 flex items-center gap-2 text-sm font-medium">{t("homeSortProfile")}</label>
+        <Select value={value.homeSortProfile || "__default__"} onValueChange={(next) => set("homeSortProfile", next === "__default__" ? "" : next)} disabled={disabled}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__default__">{t("defaultSort")}</SelectItem>
+            {sortProfiles.map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <p className="mt-1.5 text-2xs text-muted-foreground">{t("homeSortProfileHint")}</p>
       </div>
       <div className="rounded-xl border border-border/70 bg-card/40 p-3">
         <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
