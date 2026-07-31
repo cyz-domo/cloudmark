@@ -52,8 +52,21 @@ const FIXED_HOME_SORTS = new Set(["newest", "oldest", "title", "title-desc", "ca
 
 export async function getFavicon(url: string, size: number = 64) {
   try {
-    const domain = new URL(url).hostname.replace(/^www\./, "");
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}`;
+    const parsed = new URL(url);
+    const domain = parsed.hostname.replace(/^www\./, "");
+    const candidates = [
+      `${parsed.origin}/favicon.ico`,
+      `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`,
+    ];
+    for (const candidate of candidates) {
+      try {
+        const response = await fetch(candidate, { method: "HEAD", redirect: "follow" });
+        if (response.ok) return candidate;
+      } catch {
+        // Try the next favicon source.
+      }
+    }
+    return candidates[1];
   } catch {
     return "";
   }

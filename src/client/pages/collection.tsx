@@ -14,6 +14,7 @@ import {
   HelpCircle,
   KeyRound,
   Loader2,
+  RefreshCw,
   Plus,
   Search,
   Pencil,
@@ -136,6 +137,7 @@ export function CollectionPage() {
     ...DEFAULT_COLLECTION_SETTINGS,
   });
   const [sortProfiles, setSortProfiles] = useState<SortProfile[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeSortProfileId, setActiveSortProfileId] = useState<string | null>(null);
   const [privateLocked, setPrivateLocked] = useState(false);
   const [draggedUuid, setDraggedUuid] = useState<string | null>(null);
@@ -684,6 +686,19 @@ export function CollectionPage() {
     },
     [mark],
   );
+
+  const refreshCollection = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const page = await fetchCollection(mark, writeToken ?? getStoredWriteToken(mark));
+      applyCollectionPage(page, writeToken);
+      toast.success("收藏页已刷新");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "刷新失败");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [applyCollectionPage, mark, writeToken]);
 
   /** Private gate + public attach: verify token then enable this device. */
   const unlockWithToken = useCallback(
@@ -1287,6 +1302,18 @@ export function CollectionPage() {
                 {sortProfiles.length > 0 && sortProfiles.map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => void refreshCollection()}
+              disabled={refreshing}
+              title="刷新收藏页"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+              <span className="sr-only">刷新收藏页</span>
+            </Button>
             {canWrite && (
               <div className="flex gap-1">
                 <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => void manageSortProfile("create")}>＋</Button>
