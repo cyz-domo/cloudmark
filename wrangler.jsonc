@@ -3,31 +3,29 @@
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "cloudmark",
-  "compatibility_date": "2025-04-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "./src/worker/index.ts",
-  "workers_dev": true,
-  "preview_urls": true,
-  "assets": {
-    "not_found_handling": "single-page-application",
-    "binding": "ASSETS",
-    // API must hit the Worker; without this, SPA fallback can swallow /api/*
-    "run_worker_first": ["/api/*"],
-  },
-  "observability": {
-    "enabled": true,
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "cloudmark",
-      "database_id": "f3103f6e-2f65-41e8-b699-463b49564092",
-      "migrations_dir": "migrations",
-    },
-  ],
-  "vars": {
-    "BASE_URL": "https://cloudmark.site",
-  },
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "cloudmark",
+	"compatibility_date": "2025-04-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "./src/worker/index.ts",
+	"workers_dev": true,
+	"preview_urls": true,
+	"assets": {
+		"not_found_handling": "single-page-application",
+		"binding": "ASSETS",
+		// API must hit the Worker; without this, SPA fallback can swallow /api/*
+		"run_worker_first": ["/api/*"],
+	},
+	"observability": {
+		"enabled": false,
+	},
+	"d1_databases": [{
+		"binding": "DB",
+		"database_name": "cloudmark",
+		"database_id": "f3103f6e-2f65-41e8-b699-463b49564092",
+		"migrations_dir": "migrations",
+	}, ],
+	"vars": {
+		"BASE_URL": "https://cloudmark.site",
+	},
 }
