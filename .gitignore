@@ -26,3 +26,8 @@ out
 .idea
 .vscode/*
 !.vscode/settings.json
+
+# local tooling artifacts
+.codegraph/
+pnpm-workspace.yaml
+test_plugin.go

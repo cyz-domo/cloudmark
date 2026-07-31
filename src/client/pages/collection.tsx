@@ -511,16 +511,26 @@ export function CollectionPage() {
     // Refresh list after a successful bookmarklet save
     if (status === "success") {
       const token = writeToken ?? getStoredWriteToken(mark);
+      const currentCategory = category;
       void fetchCollection(mark, token)
         .then((page) => {
           if (page.settings) {
             const nextProfile = page.sortProfiles?.find((profile) => profile.id === page.settings?.homeSortProfile);
             setSettings(page.settings);
-            setCategory(page.settings.homeCategory || ALL_CATEGORIES);
             setActiveSortProfileId(nextProfile?.id ?? null);
             setSort(nextProfile ? "manual" : isFixedSortKey(page.settings.homeSortProfile) ? page.settings.homeSortProfile : "newest");
             if (page.bookmarksData) setData({ ...page.bookmarksData, bookmarks: nextProfile ? applySortProfile(page.bookmarksData.bookmarks, nextProfile) : page.bookmarksData.bookmarks });
           } else if (page.bookmarksData) setData(page.bookmarksData);
+          if (page.bookmarksData) setData(page.bookmarksData);
+          const categoryStillExists =
+            currentCategory === ALL_CATEGORIES ||
+            page.categories?.some((item) =>
+              isCategoryInTree(item, currentCategory),
+            ) ||
+            page.bookmarksData?.bookmarks.some((bookmark) =>
+              isCategoryInTree(bookmark.category, currentCategory),
+            );
+          setCategory(categoryStillExists ? currentCategory : ALL_CATEGORIES);
         })
         .catch(() => {
           /* ignore refresh errors */
@@ -528,7 +538,7 @@ export function CollectionPage() {
     }
 
     setSearchParams({}, { replace: true });
-  }, [searchParams, setSearchParams, t, mark, writeToken]);
+  }, [searchParams, setSearchParams, t, mark, writeToken, category, setCategory]);
 
   // Clamp focus when filter changes; drop selection entries not in filtered
   useEffect(() => {
@@ -687,19 +697,6 @@ export function CollectionPage() {
     [mark],
   );
 
-  const refreshCollection = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const page = await fetchCollection(mark, writeToken ?? getStoredWriteToken(mark));
-      applyCollectionPage(page, writeToken);
-      toast.success("收藏页已刷新");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "刷新失败");
-    } finally {
-      setRefreshing(false);
-    }
-  }, [applyCollectionPage, mark, writeToken]);
-
   /** Private gate + public attach: verify token then enable this device. */
   const unlockWithToken = useCallback(
     async (token: string) => {
@@ -738,6 +735,32 @@ export function CollectionPage() {
       return { ...prev, bookmarks: merged };
     });
   }, [mark]);
+
+  const refreshCollection = useCallback(async () => {
+    const currentCategory = category;
+    setRefreshing(true);
+    try {
+      const page = await fetchCollection(
+        mark,
+        writeToken ?? getStoredWriteToken(mark),
+      );
+      applyCollectionPage(page, writeToken);
+      const categoryStillExists =
+        currentCategory === ALL_CATEGORIES ||
+        page.categories?.some((item) =>
+          isCategoryInTree(item, currentCategory),
+        ) ||
+        page.bookmarksData?.bookmarks.some((bookmark) =>
+          isCategoryInTree(bookmark.category, currentCategory),
+        );
+      setCategory(categoryStillExists ? currentCategory : ALL_CATEGORIES);
+      toast.success("收藏页已刷新");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "刷新失败");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [applyCollectionPage, category, mark, setCategory, writeToken]);
 
   const onBookmarkAdded = useCallback(
     (bookmark: BookmarkInstance) => {
