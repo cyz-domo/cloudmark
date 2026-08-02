@@ -161,7 +161,9 @@ export function CollectionPage() {
     active: boolean;
     x: number;
     y: number;
+    targetUuid: string | null;
   } | null>(null);
+  const reorderRef = useRef<((targetUuid: string, sourceUuid?: string) => void) | null>(null);
   const suppressClickRef = useRef(false);
 
   const baseUrl = getBaseUrl();
@@ -187,7 +189,11 @@ export function CollectionPage() {
     const element = document.elementFromPoint(x, y);
     const row = element?.closest<HTMLElement>("[data-uuid]");
     if (row && list.contains(row)) {
-      setDragOverUuid(row.dataset.uuid ?? null);
+      const targetUuid = row.dataset.uuid ?? null;
+      setDragOverUuid(targetUuid);
+      if (pointerDragRef.current?.active) {
+        pointerDragRef.current.targetUuid = targetUuid;
+      }
     } else if (!list.contains(element)) {
       setDragOverUuid(null);
     }
@@ -251,8 +257,9 @@ export function CollectionPage() {
     stopAutoScroll();
     setDragOverUuid(null);
     setDraggedUuid(null);
-    if (wasActive && targetUuid && targetUuid !== pointer.uuid) {
-      reorder(targetUuid, pointer.uuid);
+    const resolvedTarget = targetUuid ?? pointer.targetUuid;
+    if (wasActive && resolvedTarget && resolvedTarget !== pointer.uuid) {
+      reorderRef.current?.(resolvedTarget, pointer.uuid);
     }
   }, [stopAutoScroll]);
 
@@ -269,6 +276,7 @@ export function CollectionPage() {
       active: false,
       x: event.clientX,
       y: event.clientY,
+      targetUuid: null,
     };
   }, [manualSort]);
 
@@ -407,6 +415,8 @@ export function CollectionPage() {
     setDraggedUuid(null);
     setDragOverUuid(null);
   };
+
+  reorderRef.current = reorder;
 
   const savePendingOrders = async () => {
     if (!writeToken || !canWrite || (Object.keys(pendingOrders).length === 0 && !categoryOrderDirty)) return;
