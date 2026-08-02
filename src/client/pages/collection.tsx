@@ -153,6 +153,18 @@ export function CollectionPage() {
   const listRef = useRef<HTMLDivElement>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
   const autoScrollSpeedRef = useRef(0);
+  const pointerDragRef = useRef<{
+    uuid: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+    x: number;
+    y: number;
+    targetUuid: string | null;
+  } | null>(null);
+  const reorderRef = useRef<((targetUuid: string, sourceUuid?: string) => void) | null>(null);
+  const suppressClickRef = useRef(false);
 
   const baseUrl = getBaseUrl();
   const bookmarks = data?.bookmarks ?? [];
@@ -171,6 +183,22 @@ export function CollectionPage() {
   } = filter;
   const manualSort = sort === "manual";
 
+  const updatePointerTarget = useCallback((x: number, y: number) => {
+    const list = listRef.current;
+    if (!list) return;
+    const element = document.elementFromPoint(x, y);
+    const row = element?.closest<HTMLElement>("[data-uuid]");
+    if (row && list.contains(row)) {
+      const targetUuid = row.dataset.uuid ?? null;
+      setDragOverUuid(targetUuid);
+      if (pointerDragRef.current?.active) {
+        pointerDragRef.current.targetUuid = targetUuid;
+      }
+    } else if (!list.contains(element)) {
+      setDragOverUuid(null);
+    }
+  }, []);
+
   const stopAutoScroll = useCallback(() => {
     autoScrollSpeedRef.current = 0;
     if (autoScrollFrameRef.current !== null) {
@@ -186,30 +214,112 @@ export function CollectionPage() {
       autoScrollFrameRef.current = null;
       return;
     }
-    list.scrollTop += speed;
+    const previousTop = list.scrollTop;
+    list.scrollTop = Math.max(
+      0,
+      Math.min(list.scrollHeight - list.clientHeight, previousTop + speed),
+    );
+    const pointer = pointerDragRef.current;
+    if (pointer?.active) updatePointerTarget(pointer.x, pointer.y);
+    if (list.scrollTop === previousTop) {
+      autoScrollSpeedRef.current = 0;
+      autoScrollFrameRef.current = null;
+      return;
+    }
     autoScrollFrameRef.current = requestAnimationFrame(runAutoScroll);
-  }, []);
+  }, [updatePointerTarget]);
 
-  const updateAutoScroll = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+  useEffect(() => stopAutoScroll, [stopAutoScroll]);
+
+  const updateAutoScroll = useCallback((y: number) => {
     const list = listRef.current;
     if (!list) return;
     const bounds = list.getBoundingClientRect();
-    const edgeSize = Math.min(96, Math.max(48, bounds.height * 0.18));
-    const pointerY = event.clientY;
+    const edgeSize = Math.min(112, Math.max(56, bounds.height * 0.2));
     let speed = 0;
-    if (pointerY < bounds.top + edgeSize) {
-      speed = -Math.ceil(18 * (1 - Math.max(0, pointerY - bounds.top) / edgeSize));
-    } else if (pointerY > bounds.bottom - edgeSize) {
-      speed = Math.ceil(18 * (1 - Math.max(0, bounds.bottom - pointerY) / edgeSize));
+    if (y < bounds.top + edgeSize) {
+      speed = -Math.ceil(20 * (1 - Math.max(0, y - bounds.top) / edgeSize));
+    } else if (y > bounds.bottom - edgeSize) {
+      speed = Math.ceil(20 * (1 - Math.max(0, bounds.bottom - y) / edgeSize));
     }
-    autoScrollSpeedRef.current = Math.max(-18, Math.min(18, speed));
-    if (autoScrollSpeedRef.current !== 0 && autoScrollFrameRef.current === null) {
+    autoScrollSpeedRef.current = Math.max(-20, Math.min(20, speed));
+    if (speed !== 0 && autoScrollFrameRef.current === null) {
       autoScrollFrameRef.current = requestAnimationFrame(runAutoScroll);
     }
-    if (autoScrollSpeedRef.current === 0) stopAutoScroll();
+    if (speed === 0) stopAutoScroll();
   }, [runAutoScroll, stopAutoScroll]);
 
-  useEffect(() => stopAutoScroll, [stopAutoScroll]);
+  const finishPointerDrag = useCallback((targetUuid?: string) => {
+    const pointer = pointerDragRef.current;
+    if (!pointer) return;
+    const wasActive = pointer.active;
+    pointerDragRef.current = null;
+    stopAutoScroll();
+    setDragOverUuid(null);
+    setDraggedUuid(null);
+    const resolvedTarget = targetUuid ?? pointer.targetUuid;
+    if (wasActive && resolvedTarget && resolvedTarget !== pointer.uuid) {
+      reorderRef.current?.(resolvedTarget, pointer.uuid);
+    }
+  }, [stopAutoScroll]);
+
+  const beginPointerDrag = useCallback((uuid: string, event: React.PointerEvent<HTMLDivElement>) => {
+    if (!manualSort || event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("button, a, input, textarea")) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    pointerDragRef.current = {
+      uuid,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      x: event.clientX,
+      y: event.clientY,
+      targetUuid: null,
+    };
+  }, [manualSort]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const pointer = pointerDragRef.current;
+      if (!pointer || event.pointerId !== pointer.pointerId) return;
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      if (!pointer.active) {
+        const distance = Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY);
+        if (distance < 6) return;
+        pointer.active = true;
+        suppressClickRef.current = true;
+        setDraggedUuid(pointer.uuid);
+      }
+      event.preventDefault();
+      updatePointerTarget(event.clientX, event.clientY);
+      updateAutoScroll(event.clientY);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      const pointer = pointerDragRef.current;
+      if (!pointer || event.pointerId !== pointer.pointerId) return;
+      const element = document.elementFromPoint(event.clientX, event.clientY);
+      const target = element?.closest<HTMLElement>("[data-uuid]")?.dataset.uuid;
+      finishPointerDrag(target);
+    };
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [finishPointerDrag, updateAutoScroll, updatePointerTarget]);
+
+  useEffect(() => {
+    if (!suppressClickRef.current) return;
+    const clear = () => { suppressClickRef.current = false; };
+    window.addEventListener("click", clear, true);
+    return () => window.removeEventListener("click", clear, true);
+  }, [draggedUuid]);
 
   useEffect(() => {
     if (!categoryOrderDirty || typeof window === "undefined") return;
@@ -276,17 +386,17 @@ export function CollectionPage() {
     };
   }, [settings.backgroundUrl]);
 
-  const reorder = (targetUuid: string) => {
-    if (!draggedUuid || draggedUuid === targetUuid || !canWrite || !manualSort) return;
+  const reorder = (targetUuid: string, sourceUuid = draggedUuid) => {
+    if (!sourceUuid || sourceUuid === targetUuid || !canWrite || !manualSort) return;
     const current = bookmarks.filter((bookmark) =>
       category === ALL_CATEGORIES || bookmark.category === category,
     );
-    const dragged = current.find((bookmark) => bookmark.uuid === draggedUuid);
+    const dragged = current.find((bookmark) => bookmark.uuid === sourceUuid);
     const target = current.find((bookmark) => bookmark.uuid === targetUuid);
     if (!dragged || !target || dragged.category !== target.category) return;
     const categoryItems = current.filter((bookmark) => bookmark.category === dragged.category);
     const next = [...categoryItems];
-    const from = next.findIndex((bookmark) => bookmark.uuid === draggedUuid);
+    const from = next.findIndex((bookmark) => bookmark.uuid === sourceUuid);
     const to = next.findIndex((bookmark) => bookmark.uuid === targetUuid);
     next.splice(from, 1);
     next.splice(to, 0, dragged);
@@ -305,6 +415,8 @@ export function CollectionPage() {
     setDraggedUuid(null);
     setDragOverUuid(null);
   };
+
+  reorderRef.current = reorder;
 
   const savePendingOrders = async () => {
     if (!writeToken || !canWrite || (Object.keys(pendingOrders).length === 0 && !categoryOrderDirty)) return;
@@ -1556,6 +1668,11 @@ export function CollectionPage() {
                   focused={index === focusedIndex}
                   canWrite={canWrite}
                   onSelect={(e) => {
+                    if (suppressClickRef.current) {
+                      e.preventDefault();
+                      suppressClickRef.current = false;
+                      return;
+                    }
                     // Multi-select only with explicit modifiers / checkbox.
                     // Plain click is always exclusive single-select.
                     if (e.shiftKey) {
@@ -1582,25 +1699,7 @@ export function CollectionPage() {
                     openDeleteFor([bookmark]);
                   }}
                   reorderable={manualSort && canWrite}
-                  onDragStart={() => {
-                    setDraggedUuid(bookmark.uuid);
-                    setDragOverUuid(null);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setDragOverUuid(bookmark.uuid);
-                    updateAutoScroll(event);
-                  }}
-                  onDrop={() => {
-                    stopAutoScroll();
-                    setDragOverUuid(null);
-                    reorder(bookmark.uuid);
-                  }}
-                  onDragEnd={() => {
-                    stopAutoScroll();
-                    setDraggedUuid(null);
-                    setDragOverUuid(null);
-                  }}
+                  onPointerDown={(event) => beginPointerDrag(bookmark.uuid, event)}
                   dragging={draggedUuid === bookmark.uuid}
                   dragOver={dragOverUuid === bookmark.uuid && draggedUuid !== bookmark.uuid}
                 />
