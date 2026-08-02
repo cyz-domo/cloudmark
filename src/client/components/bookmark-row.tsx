@@ -63,6 +63,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         "bookmark-row group relative grid cursor-pointer items-center gap-x-2 border-b border-border/50 px-2 py-2.5 text-sm sm:gap-x-3 sm:px-3",
         BOOKMARK_ROW_GRID,
         "hover:bg-muted/45",
+        reorderable && "select-none touch-none",
         // Selected = membership in selection set (checkbox / multi)
         selected && "is-selected",
         // Focused = keyboard/mouse cursor — distinct from selection

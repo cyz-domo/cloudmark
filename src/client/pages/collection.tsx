@@ -257,8 +257,10 @@ export function CollectionPage() {
   }, [stopAutoScroll]);
 
   const beginPointerDrag = useCallback((uuid: string, event: React.PointerEvent<HTMLDivElement>) => {
-    if (!manualSort || !writeToken || isDemoMark(mark) || event.button !== 0) return;
+    if (!manualSort || event.button !== 0) return;
     if ((event.target as HTMLElement).closest("button, a, input, textarea")) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
     pointerDragRef.current = {
       uuid,
       pointerId: event.pointerId,
@@ -268,7 +270,7 @@ export function CollectionPage() {
       x: event.clientX,
       y: event.clientY,
     };
-  }, [isDemoMark, manualSort, mark, writeToken]);
+  }, [manualSort]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
