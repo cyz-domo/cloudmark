@@ -437,11 +437,6 @@ export async function createBookmark(
 
   await assertUnderBookmarkLimit(db, mark);
 
-  const duplicate = await findBookmarkByUrl(db, mark, url);
-  if (duplicate) {
-    throw new Error(`Bookmark ${title} (${url}) already exists`);
-  }
-
   const settings = collection
     ? rowToSettings(collection)
     : DEFAULT_COLLECTION_SETTINGS;
@@ -449,6 +444,11 @@ export async function createBookmark(
     (input.category && input.category.trim()) ||
     settings.defaultCategory ||
     defaultCategory;
+
+  const duplicate = await findBookmarkByUrl(db, mark, url, category);
+  if (duplicate) {
+    throw new Error(`Bookmark ${title} (${url}) already exists`);
+  }
 
   const uuid = crypto.randomUUID();
   const favicon =
@@ -507,8 +507,8 @@ export async function updateBookmarkRecord(
     throw new Error(`Bookmark with UUID ${uuid} not found`);
   }
 
-  if (url !== existing.url) {
-    const conflict = await findBookmarkByUrl(db, mark, url);
+  if (url !== existing.url || category !== existing.category) {
+    const conflict = await findBookmarkByUrl(db, mark, url, category);
     if (conflict && conflict.uuid !== uuid) {
       throw new Error(`Bookmark with URL ${url} already exists`);
     }
@@ -612,7 +612,7 @@ export async function importBookmarks(
   }
 
   const existing = await getBookmarksForMark(db, mark);
-  const existingUrls = new Set(existing.map((b) => b.url));
+  const existingUrls = new Set(existing.map((b) => `${b.url}\u0000${b.category}`));
 
   // Dedupe within the import payload by URL
   const seen = new Set<string>();
@@ -623,11 +623,13 @@ export async function importBookmarks(
 
   for (const item of bookmarks) {
     const url = item.url.trim();
-    if (seen.has(url)) {
+    const category = item.category || defaultCategory;
+    const scopedKey = `${url}\u0000${category}`;
+    if (seen.has(scopedKey)) {
       skipped += 1;
       continue;
     }
-    seen.add(url);
+    seen.add(scopedKey);
 
     if (toInsert.length >= room) {
       skipped += 1;
@@ -635,11 +637,11 @@ export async function importBookmarks(
     }
 
     try {
-      if (skipDuplicates && existingUrls.has(url)) {
+      if (skipDuplicates && existingUrls.has(scopedKey)) {
         skipped += 1;
         continue;
       }
-      if (!skipDuplicates && existingUrls.has(url)) {
+      if (!skipDuplicates && existingUrls.has(scopedKey)) {
         skipped += 1;
         continue;
       }
@@ -665,12 +667,12 @@ export async function importBookmarks(
         url,
         title: item.title || url,
         description: item.description,
-        category: item.category || defaultCategory,
+        category,
         favicon,
         createdAt,
         modifiedAt: now,
       });
-      existingUrls.add(url);
+      existingUrls.add(scopedKey);
     } catch (e) {
       failed += 1;
       if (errors.length < 10) {

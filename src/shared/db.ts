@@ -450,13 +450,15 @@ export async function findBookmarkByUrl(
   db: D1Database,
   mark: string,
   url: string,
+  category?: string,
 ): Promise<BookmarkInstance | null> {
+  const categoryClause = category === undefined ? "" : " AND category = ?";
   const row = await db
     .prepare(
       `SELECT uuid, mark, url, title, description, category, favicon, created_at, modified_at
-       FROM bookmarks WHERE mark = ? AND url = ?`,
+       FROM bookmarks WHERE mark = ? AND url = ?${categoryClause}`,
     )
-    .bind(mark, url)
+    .bind(...(category === undefined ? [mark, url] : [mark, url, category]))
     .first<BookmarkRow>();
   return row ? rowToBookmark(row) : null;
 }
