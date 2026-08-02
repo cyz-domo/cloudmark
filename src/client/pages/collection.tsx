@@ -186,11 +186,20 @@ export function CollectionPage() {
       autoScrollFrameRef.current = null;
       return;
     }
-    list.scrollTop += speed;
+    const previousTop = list.scrollTop;
+    list.scrollTop = Math.max(
+      0,
+      Math.min(list.scrollHeight - list.clientHeight, previousTop + speed),
+    );
+    if (list.scrollTop === previousTop) {
+      autoScrollSpeedRef.current = 0;
+      autoScrollFrameRef.current = null;
+      return;
+    }
     autoScrollFrameRef.current = requestAnimationFrame(runAutoScroll);
   }, []);
 
-  const updateAutoScroll = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+  const updateAutoScroll = useCallback((event: { clientY: number }) => {
     const list = listRef.current;
     if (!list) return;
     const bounds = list.getBoundingClientRect();
@@ -210,6 +219,13 @@ export function CollectionPage() {
   }, [runAutoScroll, stopAutoScroll]);
 
   useEffect(() => stopAutoScroll, [stopAutoScroll]);
+
+  useEffect(() => {
+    if (!draggedUuid) return;
+    const handleDragOver = (event: DragEvent) => updateAutoScroll(event);
+    window.addEventListener("dragover", handleDragOver);
+    return () => window.removeEventListener("dragover", handleDragOver);
+  }, [draggedUuid, updateAutoScroll]);
 
   useEffect(() => {
     if (!categoryOrderDirty || typeof window === "undefined") return;
@@ -1521,6 +1537,10 @@ export function CollectionPage() {
             aria-multiselectable
             aria-label={t("title")}
             className="min-h-0 flex-1 overflow-y-auto"
+            onDragOver={(event) => {
+              event.preventDefault();
+              updateAutoScroll(event);
+            }}
           >
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-4 px-4 py-20 text-center">
