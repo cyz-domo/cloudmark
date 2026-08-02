@@ -151,6 +151,8 @@ export function CollectionPage() {
   const [addingCategory, setAddingCategory] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
+  const autoScrollSpeedRef = useRef(0);
 
   const baseUrl = getBaseUrl();
   const bookmarks = data?.bookmarks ?? [];
@@ -168,6 +170,46 @@ export function CollectionPage() {
     toggleSortColumn,
   } = filter;
   const manualSort = sort === "manual";
+
+  const stopAutoScroll = useCallback(() => {
+    autoScrollSpeedRef.current = 0;
+    if (autoScrollFrameRef.current !== null) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+  }, []);
+
+  const runAutoScroll = useCallback(() => {
+    const list = listRef.current;
+    const speed = autoScrollSpeedRef.current;
+    if (!list || speed === 0) {
+      autoScrollFrameRef.current = null;
+      return;
+    }
+    list.scrollTop += speed;
+    autoScrollFrameRef.current = requestAnimationFrame(runAutoScroll);
+  }, []);
+
+  const updateAutoScroll = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    const list = listRef.current;
+    if (!list) return;
+    const bounds = list.getBoundingClientRect();
+    const edgeSize = Math.min(96, Math.max(48, bounds.height * 0.18));
+    const pointerY = event.clientY;
+    let speed = 0;
+    if (pointerY < bounds.top + edgeSize) {
+      speed = -Math.ceil(18 * (1 - Math.max(0, pointerY - bounds.top) / edgeSize));
+    } else if (pointerY > bounds.bottom - edgeSize) {
+      speed = Math.ceil(18 * (1 - Math.max(0, bounds.bottom - pointerY) / edgeSize));
+    }
+    autoScrollSpeedRef.current = Math.max(-18, Math.min(18, speed));
+    if (autoScrollSpeedRef.current !== 0 && autoScrollFrameRef.current === null) {
+      autoScrollFrameRef.current = requestAnimationFrame(runAutoScroll);
+    }
+    if (autoScrollSpeedRef.current === 0) stopAutoScroll();
+  }, [runAutoScroll, stopAutoScroll]);
+
+  useEffect(() => stopAutoScroll, [stopAutoScroll]);
 
   useEffect(() => {
     if (!categoryOrderDirty || typeof window === "undefined") return;
@@ -1547,10 +1589,17 @@ export function CollectionPage() {
                   onDragOver={(event) => {
                     event.preventDefault();
                     setDragOverUuid(bookmark.uuid);
+                    updateAutoScroll(event);
                   }}
                   onDrop={() => {
+                    stopAutoScroll();
                     setDragOverUuid(null);
                     reorder(bookmark.uuid);
+                  }}
+                  onDragEnd={() => {
+                    stopAutoScroll();
+                    setDraggedUuid(null);
+                    setDragOverUuid(null);
                   }}
                   dragging={draggedUuid === bookmark.uuid}
                   dragOver={dragOverUuid === bookmark.uuid && draggedUuid !== bookmark.uuid}

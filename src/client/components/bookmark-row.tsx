@@ -24,6 +24,7 @@ interface BookmarkRowProps {
   onDragStart?: () => void;
   onDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
   onDrop?: () => void;
+  onDragEnd?: () => void;
   dragging?: boolean;
   dragOver?: boolean;
 }
@@ -46,6 +47,7 @@ export const BookmarkRow = memo(function BookmarkRow({
   onDragStart,
   onDragOver,
   onDrop,
+  onDragEnd,
   dragging,
   dragOver,
 }: BookmarkRowProps) {
@@ -82,6 +84,7 @@ export const BookmarkRow = memo(function BookmarkRow({
       }}
       onDragOver={onDragOver}
       onDrop={onDrop}
+      onDragEnd={onDragEnd}
       onClick={onSelect}
       onDoubleClick={(e) => {
         e.preventDefault();
