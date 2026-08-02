@@ -1,4 +1,4 @@
-import { memo, type MouseEvent } from "react";
+import { memo, type MouseEvent, type PointerEvent } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Check, ExternalLink, GripVertical, Pencil, Trash2 } from "lucide-react";
 import type { BookmarkInstance } from "@/shared/types";
@@ -21,10 +21,7 @@ interface BookmarkRowProps {
   onEdit: () => void;
   onDelete: () => void;
   reorderable?: boolean;
-  onDragStart?: () => void;
-  onDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDrop?: () => void;
-  onDragEnd?: () => void;
+  onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
   dragging?: boolean;
   dragOver?: boolean;
 }
@@ -44,10 +41,7 @@ export const BookmarkRow = memo(function BookmarkRow({
   onEdit,
   onDelete,
   reorderable,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  onDragEnd,
+  onPointerDown,
   dragging,
   dragOver,
 }: BookmarkRowProps) {
@@ -77,14 +71,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         dragging && "z-10 scale-[1.01] bg-primary/10 opacity-55 shadow-lg ring-2 ring-primary/35",
         dragOver && "translate-y-1 border-t-2 border-primary bg-primary/8 shadow-[0_-6px_18px_-12px_hsl(var(--primary))]",
       )}
-      draggable={reorderable}
-      onDragStart={(event) => {
-        event.dataTransfer.effectAllowed = "move";
-        onDragStart?.();
-      }}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
+      onPointerDown={onPointerDown}
       onClick={onSelect}
       onDoubleClick={(e) => {
         e.preventDefault();
