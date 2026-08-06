@@ -342,7 +342,10 @@
     "sortCategoryAsc": "Category A–Z",
     "sortCategoryDesc": "Category Z–A",
     "sortUrlAsc": "URL A–Z",
-    "sortUrlDesc": "URL Z–A"
+    "sortUrlDesc": "URL Z–A",
+    "reorderMode": "Reorder",
+    "reorderDone": "Done",
+    "reorderModeHint": "Reorder mode: drag rows to change order, swipe still scrolls outside reorder mode"
   },
   "TokenManager": {
     "title": "Write token",

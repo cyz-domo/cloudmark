@@ -13,6 +13,7 @@ import {
   Folder,
   HelpCircle,
   KeyRound,
+  ListOrdered,
   Loader2,
   RefreshCw,
   Plus,
@@ -94,6 +95,11 @@ function renameCategoryPath(path: string, from: string, to: string): string {
 const FIXED_SORT_KEYS: SortKey[] = ["newest", "oldest", "title", "title-desc", "category", "category-desc", "url", "url-desc"];
 function isFixedSortKey(value: string): value is SortKey { return FIXED_SORT_KEYS.includes(value as SortKey); }
 
+/** Touch primary input (phones) — reorder via ▲▼ arrows, not drag */
+const IS_COARSE_POINTER =
+  typeof window !== "undefined" &&
+  window.matchMedia("(pointer: coarse)").matches;
+
 function applySortProfile(bookmarks: BookmarkInstance[], profile?: SortProfile): BookmarkInstance[] {
   if (!profile) return bookmarks;
   const order = new Map(profile.orders.flatMap(({ uuids }, categoryIndex) => uuids.map((uuid, itemIndex) => [uuid, categoryIndex * 10000 + itemIndex] as const)));
@@ -144,6 +150,7 @@ export function CollectionPage() {
   const [dragOverUuid, setDragOverUuid] = useState<string | null>(null);
   const [pendingOrders, setPendingOrders] = useState<Record<string, string[]>>({});
   const [savingOrder, setSavingOrder] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
   const [draggedCategory, setDraggedCategory] = useState<string | null>(null);
   const [categoryOrderDirty, setCategoryOrderDirty] = useState(false);
@@ -1498,6 +1505,18 @@ export function CollectionPage() {
                 <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!activeSortProfileId} onClick={() => void manageSortProfile("delete")}>×</Button>
               </div>
             )}
+            {manualSort && canWrite && IS_COARSE_POINTER && (
+              <Button
+                size="sm"
+                variant={reorderMode ? "default" : "outline"}
+                className="h-8 rounded-full"
+                onClick={() => setReorderMode((value) => !value)}
+                title={ts("reorderModeHint")}
+              >
+                <ListOrdered className="mr-1 h-3.5 w-3.5" />
+                {reorderMode ? ts("reorderDone") : ts("reorderMode")}
+              </Button>
+            )}
 
             {(Object.keys(pendingOrders).length > 0 || categoryOrderDirty) && (
               <>
@@ -1700,6 +1719,7 @@ export function CollectionPage() {
                   }}
                   reorderable={manualSort && canWrite}
                   onPointerDown={(event) => beginPointerDrag(bookmark.uuid, event)}
+                  reorderMode={reorderMode}
                   dragging={draggedUuid === bookmark.uuid}
                   dragOver={dragOverUuid === bookmark.uuid && draggedUuid !== bookmark.uuid}
                 />

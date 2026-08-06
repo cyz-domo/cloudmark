@@ -333,7 +333,10 @@
     "sortCategoryAsc": "分类 A–Z",
     "sortCategoryDesc": "分类 Z–A",
     "sortUrlAsc": "网址 A–Z",
-    "sortUrlDesc": "网址 Z–A"
+    "sortUrlDesc": "网址 Z–A",
+    "reorderMode": "排序",
+    "reorderDone": "完成",
+    "reorderModeHint": "排序模式：拖动行调整顺序，模式外滑动仍用于滚动"
   },
   "TokenUnlock": {
     "placeholder": "tok_…",

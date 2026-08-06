@@ -8,6 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { useTranslations } from "@/client/i18n/context";
 import { BookmarkIcon } from "@/client/components/bookmark-icon";
 
+/** Touch-primary device: reorder by dragging in reorder mode, never by swiping */
+const IS_COARSE_POINTER =
+  typeof window !== "undefined" &&
+  window.matchMedia("(pointer: coarse)").matches;
+
 interface BookmarkRowProps {
   bookmark: BookmarkInstance;
   /** Multi-select membership */
@@ -24,6 +29,8 @@ interface BookmarkRowProps {
   onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
   dragging?: boolean;
   dragOver?: boolean;
+  /** Reorder mode: allow whole-row drag on touch (desktop drag is always on) */
+  reorderMode?: boolean;
 }
 
 /** Shared grid template — must match collection list header */
@@ -44,6 +51,7 @@ export const BookmarkRow = memo(function BookmarkRow({
   onPointerDown,
   dragging,
   dragOver,
+  reorderMode,
 }: BookmarkRowProps) {
   const t = useTranslations("Components.BookmarkCard");
   const domain = getDomain(bookmark.url);
@@ -63,23 +71,29 @@ export const BookmarkRow = memo(function BookmarkRow({
         "bookmark-row group relative grid cursor-pointer items-center gap-x-2 border-b border-border/50 px-2 py-2.5 text-sm sm:gap-x-3 sm:px-3",
         BOOKMARK_ROW_GRID,
         "hover:bg-muted/45",
-        reorderable && "select-none touch-none",
+        // Reorderable rows claim the pointer gesture only when drag is
+        // allowed: desktop always, mobile only inside reorder mode. Outside
+        // that, a finger swipe must scroll the list, never reorder.
+        reorderable && (!IS_COARSE_POINTER || reorderMode) && "select-none touch-none",
+        reorderable && IS_COARSE_POINTER && !reorderMode && "touch-action:pan-y",
         // Selected = membership in selection set (checkbox / multi)
         selected && "is-selected",
         // Focused = keyboard/mouse cursor — distinct from selection
         focused && "is-focused",
-        reorderable && "cursor-grab active:cursor-grabbing",
+        reorderable && (!IS_COARSE_POINTER || reorderMode) && "cursor-grab active:cursor-grabbing",
         dragging && "z-10 scale-[1.01] bg-primary/10 opacity-55 shadow-lg ring-2 ring-primary/35",
         dragOver && "translate-y-1 border-t-2 border-primary bg-primary/8 shadow-[0_-6px_18px_-12px_hsl(var(--primary))]",
       )}
-      onPointerDown={onPointerDown}
+      // Drag allowed when reorderable: desktop always, mobile only in reorder
+      // mode. Outside that, swipe scrolls.
+      onPointerDown={reorderable && (!IS_COARSE_POINTER || reorderMode) ? onPointerDown : undefined}
       onClick={onSelect}
       onDoubleClick={(e) => {
         e.preventDefault();
         onOpen();
       }}
     >
-      {reorderable ? <GripVertical className="pointer-events-none absolute left-0 h-4 w-4 -translate-x-0.5 text-muted-foreground/60" aria-label="Drag to reorder" /> : null}
+      {reorderable && (!IS_COARSE_POINTER || reorderMode) ? <GripVertical className="pointer-events-none absolute left-0 h-4 w-4 -translate-x-0.5 text-muted-foreground/60" aria-label="Drag to reorder" /> : null}
       <button
         type="button"
         role="checkbox"
