@@ -170,9 +170,7 @@
       "delete": "Delete",
       "deleteConfirm": "Are you sure you want to delete this bookmark?",
       "select": "Select",
-      "deselect": "Deselect",
-      "moveUp": "Move up",
-      "moveDown": "Move down"
+      "deselect": "Deselect"
     },
     "BookmarkDialog": {
       "addTitle": "Add Bookmark",
@@ -347,7 +345,7 @@
     "sortUrlDesc": "URL Z–A",
     "reorderMode": "Reorder",
     "reorderDone": "Done",
-    "reorderModeHint": "Reorder mode: use the arrows to change order, swipe still scrolls"
+    "reorderModeHint": "Reorder mode: drag rows to change order, swipe still scrolls outside reorder mode"
   },
   "TokenManager": {
     "title": "Write token",

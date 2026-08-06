@@ -161,9 +161,7 @@
       "delete": "删除",
       "deleteConfirm": "确定要删除这个书签吗？",
       "select": "选中",
-      "deselect": "取消选中",
-      "moveUp": "上移",
-      "moveDown": "下移"
+      "deselect": "取消选中"
     },
     "BookmarkDialog": {
       "addTitle": "添加书签",
@@ -338,7 +336,7 @@
     "sortUrlDesc": "网址 Z–A",
     "reorderMode": "排序",
     "reorderDone": "完成",
-    "reorderModeHint": "排序模式：用箭头调整顺序，滑动仍用于滚动"
+    "reorderModeHint": "排序模式：拖动行调整顺序，模式外滑动仍用于滚动"
   },
   "TokenUnlock": {
     "placeholder": "tok_…",

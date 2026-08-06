@@ -272,7 +272,6 @@ export function CollectionPage() {
 
   const beginPointerDrag = useCallback((uuid: string, event: React.PointerEvent<HTMLDivElement>) => {
     if (!manualSort || event.button !== 0) return;
-    if (IS_COARSE_POINTER) return; // Mobile reorders via ▲▼ arrows, not drag
     if ((event.target as HTMLElement).closest("button, a, input, textarea")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     event.preventDefault();
@@ -549,56 +548,6 @@ export function CollectionPage() {
     collectionExists && !canWrite && !isDemoMark(mark) && !privateLocked;
   /** Brand-new mark: first write claims with the silently minted token. */
   const isUnclaimed = !collectionExists && !isDemoMark(mark);
-
-  /** Move one bookmark up/down a single step within its category (touch reorder) */
-  const moveOne = useCallback(
-    (uuid: string, direction: "up" | "down") => {
-      if (!canWrite || !manualSort) return;
-      const srcIndex = bookmarks.findIndex((b) => b.uuid === uuid);
-      if (srcIndex < 0) return;
-      const src = bookmarks[srcIndex];
-      let targetIndex = -1;
-      if (direction === "up") {
-        for (let i = srcIndex - 1; i >= 0; i--) {
-          if (bookmarks[i].category === src.category) { targetIndex = i; break; }
-        }
-      } else {
-        for (let i = srcIndex + 1; i < bookmarks.length; i++) {
-          if (bookmarks[i].category === src.category) { targetIndex = i; break; }
-        }
-      }
-      if (targetIndex < 0) return;
-      const next = [...bookmarks];
-      const [moved] = next.splice(srcIndex, 1);
-      const insertAt = targetIndex > srcIndex ? targetIndex - 1 : targetIndex;
-      next.splice(insertAt, 0, moved);
-      const categoryItems = next
-        .filter((b) => b.category === src.category)
-        .map((b) => b.uuid);
-      setData((prev) => (prev ? { ...prev, bookmarks: next } : prev));
-      setPendingOrders((previous) => ({
-        ...previous,
-        [src.category]: categoryItems,
-      }));
-    },
-    [bookmarks, canWrite, manualSort],
-  );
-
-  /** Which directions a row can move in touch reorder mode (within its category) */
-  const moveDirectionFor = useCallback(
-    (uuid: string): "up" | "down" | "both" | null => {
-      const i = bookmarks.findIndex((b) => b.uuid === uuid);
-      if (i < 0) return null;
-      const cat = bookmarks[i].category;
-      const above = bookmarks.slice(0, i).some((b) => b.category === cat);
-      const below = bookmarks.slice(i + 1).some((b) => b.category === cat);
-      if (above && below) return "both";
-      if (above) return "up";
-      if (below) return "down";
-      return null;
-    },
-    [bookmarks],
-  );
 
   const multiCount = selectedIds.size;
 
@@ -1771,8 +1720,6 @@ export function CollectionPage() {
                   reorderable={manualSort && canWrite}
                   onPointerDown={(event) => beginPointerDrag(bookmark.uuid, event)}
                   reorderMode={reorderMode}
-                  moveDirection={moveDirectionFor(bookmark.uuid)}
-                  onMove={(direction) => moveOne(bookmark.uuid, direction)}
                   dragging={draggedUuid === bookmark.uuid}
                   dragOver={dragOverUuid === bookmark.uuid && draggedUuid !== bookmark.uuid}
                 />
