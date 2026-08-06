@@ -150,10 +150,15 @@ export function useBookmarkFilter(bookmarks: BookmarkInstance[], categoryOrder: 
 
   const categories = useMemo(() => {
     const discovered = [...categoryCounts.keys()];
+    const validOrder = categoryOrder.filter((orderedCategory) =>
+      discovered.some((discoveredCategory) =>
+        isCategoryInTree(discoveredCategory, orderedCategory),
+      ),
+    );
     return [
-      ...categoryOrder,
+      ...validOrder,
       ...discovered
-        .filter((category) => !categoryOrder.includes(category))
+        .filter((category) => !validOrder.includes(category))
         .sort((a, b) => a.localeCompare(b)),
     ];
   }, [categoryCounts, categoryOrder]);

@@ -1,12 +1,25 @@
-import { memo, type MouseEvent, type PointerEvent } from "react";
+import { memo, useRef, type MouseEvent, type PointerEvent } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Check, ExternalLink, GripVertical, Pencil, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ExternalLink,
+  GripVertical,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import type { BookmarkInstance } from "@/shared/types";
 import { cn, getDomain } from "@/shared/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTranslations } from "@/client/i18n/context";
 import { BookmarkIcon } from "@/client/components/bookmark-icon";
+
+/** Touch-primary device: reorder via arrows, never whole-row HTML5 drag */
+const IS_COARSE_POINTER =
+  typeof window !== "undefined" &&
+  window.matchMedia("(pointer: coarse)").matches;
 
 interface BookmarkRowProps {
   bookmark: BookmarkInstance;
@@ -24,6 +37,11 @@ interface BookmarkRowProps {
   onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
   dragging?: boolean;
   dragOver?: boolean;
+  /** Touch reorder mode: show ▲▼ arrows and lift the whole-row drag */
+  reorderMode?: boolean;
+  /** Which move directions are possible for this row ("both" | "up" | "down" | null) */
+  moveDirection?: "up" | "down" | "both" | null;
+  onMove?: (direction: "up" | "down") => void;
 }
 
 /** Shared grid template — must match collection list header */
@@ -44,6 +62,9 @@ export const BookmarkRow = memo(function BookmarkRow({
   onPointerDown,
   dragging,
   dragOver,
+  reorderMode,
+  moveDirection,
+  onMove,
 }: BookmarkRowProps) {
   const t = useTranslations("Components.BookmarkCard");
   const domain = getDomain(bookmark.url);
@@ -63,23 +84,29 @@ export const BookmarkRow = memo(function BookmarkRow({
         "bookmark-row group relative grid cursor-pointer items-center gap-x-2 border-b border-border/50 px-2 py-2.5 text-sm sm:gap-x-3 sm:px-3",
         BOOKMARK_ROW_GRID,
         "hover:bg-muted/45",
-        reorderable && "select-none touch-none",
+        // Desktop: pointer-drag reorder (codex) — touch-none lets the row
+        // claim the gesture. Mobile: a finger drag must always scroll the
+        // list, never reorder — reorder happens via ▲▼ arrows in reorder mode.
+        reorderable && !IS_COARSE_POINTER && "select-none touch-none",
+        reorderable && IS_COARSE_POINTER && "touch-action:pan-y",
         // Selected = membership in selection set (checkbox / multi)
         selected && "is-selected",
         // Focused = keyboard/mouse cursor — distinct from selection
         focused && "is-focused",
-        reorderable && "cursor-grab active:cursor-grabbing",
+        reorderable && !IS_COARSE_POINTER && "cursor-grab active:cursor-grabbing",
         dragging && "z-10 scale-[1.01] bg-primary/10 opacity-55 shadow-lg ring-2 ring-primary/35",
         dragOver && "translate-y-1 border-t-2 border-primary bg-primary/8 shadow-[0_-6px_18px_-12px_hsl(var(--primary))]",
       )}
-      onPointerDown={onPointerDown}
+      // Desktop: codex pointer-drag reorder. Mobile: no row-level drag —
+      // swipe scrolls, reorder is via ▲▼ arrows.
+      onPointerDown={!IS_COARSE_POINTER ? onPointerDown : undefined}
       onClick={onSelect}
       onDoubleClick={(e) => {
         e.preventDefault();
         onOpen();
       }}
     >
-      {reorderable ? <GripVertical className="pointer-events-none absolute left-0 h-4 w-4 -translate-x-0.5 text-muted-foreground/60" aria-label="Drag to reorder" /> : null}
+      {reorderable && !IS_COARSE_POINTER ? <GripVertical className="pointer-events-none absolute left-0 h-4 w-4 -translate-x-0.5 text-muted-foreground/60" aria-label="Drag to reorder" /> : null}
       <button
         type="button"
         role="checkbox"
@@ -181,6 +208,22 @@ export const BookmarkRow = memo(function BookmarkRow({
         )}
         onClick={(e) => e.stopPropagation()}
       >
+        {reorderMode && moveDirection ? (
+          <span className="mr-0.5 flex shrink-0 flex-col">
+            <MoveStepButton
+              direction="up"
+              disabled={moveDirection === "down"}
+              label={t("moveUp")}
+              onMove={onMove}
+            />
+            <MoveStepButton
+              direction="down"
+              disabled={moveDirection === "up"}
+              label={t("moveDown")}
+              onMove={onMove}
+            />
+          </span>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
@@ -217,3 +260,59 @@ export const BookmarkRow = memo(function BookmarkRow({
     </div>
   );
 });
+
+/**
+ * One ▲/▼ step. Holding it down moves repeatedly (with a small initial
+ * delay), which makes long-distance reordering on touch feasible.
+ */
+function MoveStepButton({
+  direction,
+  disabled,
+  label,
+  onMove,
+}: {
+  direction: "up" | "down";
+  disabled?: boolean;
+  label: string;
+  onMove?: (direction: "up" | "down") => void;
+}) {
+  const timer = useRef<number | null>(null);
+  const cancel = () => {
+    if (timer.current !== null) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+  };
+  const press = () => {
+    if (disabled) return;
+    onMove?.(direction);
+    timer.current = window.setTimeout(() => {
+      timer.current = window.setInterval(() => onMove?.(direction), 110);
+    }, 420);
+  };
+  const Icon = direction === "up" ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      className={cn(
+        "flex h-4 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors",
+        disabled
+          ? "cursor-default opacity-30"
+          : "hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground",
+      )}
+      onPointerDown={press}
+      onPointerUp={cancel}
+      onPointerCancel={cancel}
+      onPointerLeave={cancel}
+      onPointerMove={(e) => {
+        // Dragging the finger off the button cancels the repeat
+        if (e.pressure === 0) cancel();
+      }}
+    >
+      <Icon className="h-3 w-3" />
+    </button>
+  );
+}
