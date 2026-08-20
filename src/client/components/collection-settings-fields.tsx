@@ -14,6 +14,8 @@ import { useTranslations } from "@/client/i18n/context";
 interface CollectionSettingsFieldsProps {
   value: CollectionSettings;
   onChange: (next: CollectionSettings) => void;
+  homeSort: string;
+  onHomeSortChange: (next: string) => void;
   disabled?: boolean;
   categories: string[];
   sortProfiles: SortProfile[];
@@ -23,6 +25,8 @@ interface CollectionSettingsFieldsProps {
 export function CollectionSettingsFields({
   value,
   onChange,
+  homeSort,
+  onHomeSortChange,
   disabled,
   categories,
   sortProfiles,
@@ -108,7 +112,7 @@ export function CollectionSettingsFields({
         </Select>
         <p className="mt-1.5 text-2xs text-muted-foreground">{t("homeCategoryHint")}</p>
         <label className="mb-1.5 mt-3 flex items-center gap-2 text-sm font-medium">{t("homeSortProfile")}</label>
-        <Select value={value.homeSortProfile || "newest"} onValueChange={(next) => set("homeSortProfile", next)} disabled={disabled}>
+        <Select value={homeSort || "newest"} onValueChange={onHomeSortChange} disabled={disabled}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="newest">最新</SelectItem>
@@ -119,7 +123,7 @@ export function CollectionSettingsFields({
             <SelectItem value="category-desc">分类 Z-A</SelectItem>
             <SelectItem value="url">网址 A-Z</SelectItem>
             <SelectItem value="url-desc">网址 Z-A</SelectItem>
-            {sortProfiles.map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>)}
+            {sortProfiles.filter((profile) => profile.category === value.homeCategory).map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <p className="mt-1.5 text-2xs text-muted-foreground">{t("homeSortProfileHint")}</p>

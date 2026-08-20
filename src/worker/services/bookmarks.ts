@@ -29,6 +29,8 @@ import {
   deleteSortProfile,
   updateSortProfileOrders,
   sortProfileBelongsToCollection,
+  getCategorySorts,
+  saveCategorySorts,
 } from "@/shared/db";
 import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
 import type { ImportItemSchema } from "@/shared/schema";
@@ -47,8 +49,6 @@ import {
   defaultCategory,
   isDemoMark,
 } from "@/shared/types";
-
-const FIXED_HOME_SORTS = new Set(["newest", "oldest", "title", "title-desc", "category", "category-desc", "url", "url-desc"]);
 
 export async function getFavicon(url: string, size: number = 64) {
   try {
@@ -94,6 +94,7 @@ export async function getCollectionPageData(
       settings: { ...DEFAULT_COLLECTION_SETTINGS },
       categories: [],
       sortProfiles: [],
+      categorySorts: {},
     };
   }
 
@@ -122,6 +123,7 @@ export async function getCollectionPageData(
     }
 
     const sortProfiles = await getSortProfiles(db, mark);
+    const categorySorts = await getCategorySorts(db, mark);
 
     const bookmarksData = await getBookmarksData(db, mark);
     const discovered = [...new Set((bookmarksData?.bookmarks ?? []).map((bookmark) => bookmark.category))];
@@ -141,6 +143,7 @@ export async function getCollectionPageData(
         migratedFromKv: existing.migrated_from_kv === 1,
         categories,
         sortProfiles,
+        categorySorts,
       };
     }
     return {
@@ -150,6 +153,7 @@ export async function getCollectionPageData(
       migratedFromKv: existing.migrated_from_kv === 1,
       categories,
       sortProfiles,
+      categorySorts,
     };
   }
 
@@ -212,9 +216,9 @@ export async function listCollectionSortProfiles(db: D1Database, mark: string, t
   return getSortProfiles(db, mark);
 }
 
-export async function createCollectionSortProfile(db: D1Database, mark: string, token: string, id: string, name: string) {
+export async function createCollectionSortProfile(db: D1Database, mark: string, token: string, id: string, category: string, name: string) {
   await requireWriteAccess(db, mark, token, `sort-profiles:${mark}`);
-  return createSortProfile(db, mark, id, name);
+  return createSortProfile(db, mark, category, id, name);
 }
 
 export async function renameCollectionSortProfile(db: D1Database, mark: string, token: string, id: string, name: string) {
@@ -231,6 +235,16 @@ export async function saveCollectionSortProfileOrders(db: D1Database, mark: stri
   await requireWriteAccess(db, mark, token, `sort-profiles:${mark}`);
   if (!(await sortProfileBelongsToCollection(db, mark, id))) throw new Error("Sort profile not found");
   await updateSortProfileOrders(db, mark, id, orders);
+}
+
+export async function listCategorySorts(db: D1Database, mark: string, token: string): Promise<Record<string, string>> {
+  await requireWriteAccess(db, mark, token, `category-sorts:${mark}`);
+  return getCategorySorts(db, mark);
+}
+
+export async function saveCategorySortsService(db: D1Database, mark: string, token: string, sorts: Array<{ category: string; value: string }>) {
+  await requireWriteAccess(db, mark, token, `category-sorts:${mark}`);
+  await saveCategorySorts(db, mark, sorts);
 }
 
 export async function deleteBookmarkRecords(db: D1Database, input: { mark: string; token: string; uuids: string[] }) {
@@ -341,11 +355,7 @@ export async function saveCollectionSettings(
       (patch.defaultCategory ?? rowToSettings(existing).defaultCategory).trim() ||
       defaultCategory,
     homeCategory: (patch.homeCategory ?? rowToSettings(existing).homeCategory).trim(),
-    homeSortProfile: (patch.homeSortProfile ?? rowToSettings(existing).homeSortProfile).trim(),
   };
-  if (next.homeSortProfile && !FIXED_HOME_SORTS.has(next.homeSortProfile) && !(await sortProfileBelongsToCollection(db, mark, next.homeSortProfile))) {
-    throw new Error("Sort profile not found");
-  }
   await updateCollectionSettings(db, mark, next);
   return next;
 }
