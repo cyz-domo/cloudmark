@@ -1557,11 +1557,7 @@ export function CollectionPage() {
                 <Input value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="新建分类" className="h-8 min-w-0 text-xs" maxLength={50} disabled={addingCategory} />
                 <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2" disabled={!newCategoryName.trim() || addingCategory}>＋</Button>
               </form>
-            ) : (
-              <p className="mt-1 px-2 py-1.5 text-2xs text-muted-foreground">
-                {isDemoMark(mark) ? "演示集合为只读" : "当前集合为只读，请输入写入令牌"}
-              </p>
-            )}
+            ) : null}
           </nav>
         </aside>
 
