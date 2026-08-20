@@ -12,9 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import type { CollectionSettings, SortProfile } from "@/shared/types";
 import { DEFAULT_COLLECTION_SETTINGS } from "@/shared/types";
-import { updateCollectionSettingsApi } from "@/client/lib/api";
+import { updateCollectionSettingsApi, saveCategorySortsApi } from "@/client/lib/api";
 import { useTranslations } from "@/client/i18n/context";
 import { CollectionSettingsFields } from "@/client/components/collection-settings-fields";
+import { ALL_CATEGORIES } from "@/client/hooks/use-bookmark-filter";
 
 interface CollectionSettingsDialogProps {
   mark: string;
@@ -24,7 +25,8 @@ interface CollectionSettingsDialogProps {
   settings: CollectionSettings;
   categories: string[];
   sortProfiles: SortProfile[];
-  onSaved: (settings: CollectionSettings) => void;
+  categorySorts: Record<string, string>;
+  onSaved: (settings: CollectionSettings, homeSort: string) => void;
 }
 
 export function CollectionSettingsDialog({
@@ -35,15 +37,20 @@ export function CollectionSettingsDialog({
   settings,
   categories,
   sortProfiles,
+  categorySorts,
   onSaved,
 }: CollectionSettingsDialogProps) {
   const t = useTranslations("CollectionSettings");
   const [draft, setDraft] = useState<CollectionSettings>(settings);
+  const [homeSort, setHomeSort] = useState<string>(categorySorts[settings.homeCategory || ALL_CATEGORIES] ?? "newest");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setDraft(settings ?? DEFAULT_COLLECTION_SETTINGS);
-  }, [open, settings]);
+    if (open) {
+      setDraft(settings ?? DEFAULT_COLLECTION_SETTINGS);
+      setHomeSort(categorySorts[settings?.homeCategory || ALL_CATEGORIES] ?? "newest");
+    }
+  }, [open, settings, categorySorts]);
 
   const save = async () => {
     if (!writeToken) {
@@ -60,7 +67,12 @@ export function CollectionSettingsDialog({
         backgroundUrl: draft.backgroundUrl.trim(),
         homeCategory: draft.homeCategory.trim(),
       });
-      onSaved(next);
+      await saveCategorySortsApi({
+        mark,
+        token: writeToken,
+        sorts: [{ category: draft.homeCategory.trim() || ALL_CATEGORIES, value: homeSort }],
+      });
+      onSaved(next, homeSort);
       toast.success(t("saved"));
       onOpenChange(false);
     } catch (e) {
@@ -68,6 +80,13 @@ export function CollectionSettingsDialog({
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDraftChange = (next: CollectionSettings) => {
+    if (next.homeCategory !== draft.homeCategory) {
+      setHomeSort(categorySorts[next.homeCategory || ALL_CATEGORIES] ?? "newest");
+    }
+    setDraft(next);
   };
 
 
@@ -86,7 +105,9 @@ export function CollectionSettingsDialog({
 
         <CollectionSettingsFields
           value={draft}
-          onChange={setDraft}
+          onChange={handleDraftChange}
+          homeSort={homeSort}
+          onHomeSortChange={setHomeSort}
           categories={categories}
           sortProfiles={sortProfiles}
           disabled={saving || !writeToken}

@@ -12,7 +12,10 @@ import {
   categoryOrderSchema,
   categoryMutationSchema,
   sortProfileSchema,
+  sortProfileRenameSchema,
+  sortProfileIdSchema,
   sortProfileOrdersSchema,
+  categorySortsSchema,
 } from "@/shared/schema";
 import {
   claimCollection,
@@ -33,6 +36,8 @@ import {
   renameCollectionSortProfile,
   deleteCollectionSortProfile,
   saveCollectionSortProfileOrders,
+  listCategorySorts,
+  saveCategorySortsService,
 } from "../services/bookmarks";
 import type { Env } from "../env";
 
@@ -129,19 +134,30 @@ api.get("/collections/:mark/sort-profiles", async (c) => {
 });
 
 api.post("/collections/sort-profiles", async (c) => {
-  try { const parsed = sortProfileSchema.safeParse(await c.req.json()); if (!parsed.success) return jsonError(c, "Invalid input"); const profile = await createCollectionSortProfile(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.id, parsed.data.name); return c.json({ profile }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Failed to create sort profile", 400); }
+  try { const parsed = sortProfileSchema.safeParse(await c.req.json()); if (!parsed.success) return jsonError(c, "Invalid input"); const profile = await createCollectionSortProfile(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.id, parsed.data.category, parsed.data.name); return c.json({ profile }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Failed to create sort profile", 400); }
 });
 
 api.put("/collections/sort-profiles/:id", async (c) => {
-  try { const parsed = sortProfileSchema.safeParse({ ...(await c.req.json()), id: c.req.param("id") }); if (!parsed.success) return jsonError(c, "Invalid input"); await renameCollectionSortProfile(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.id, parsed.data.name); return c.json({ ok: true }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Failed to rename sort profile", 400); }
+  try { const parsed = sortProfileRenameSchema.safeParse({ ...(await c.req.json()), id: c.req.param("id") }); if (!parsed.success) return jsonError(c, "Invalid input"); await renameCollectionSortProfile(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.id, parsed.data.name); return c.json({ ok: true }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Failed to rename sort profile", 400); }
 });
 
 api.delete("/collections/sort-profiles/:id", async (c) => {
-  try { const parsed = sortProfileSchema.safeParse({ ...(await c.req.json()), id: c.req.param("id") }); if (!parsed.success) return jsonError(c, "Invalid input"); await deleteCollectionSortProfile(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.id); return c.json({ ok: true }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Failed to delete sort profile", 400); }
+  try { const parsed = sortProfileIdSchema.safeParse({ ...(await c.req.json()), id: c.req.param("id") }); if (!parsed.success) return jsonError(c, "Invalid input"); await deleteCollectionSortProfile(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.id); return c.json({ ok: true }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Failed to delete sort profile", 400); }
 });
 
 api.post("/collections/sort-profiles/orders", async (c) => {
   try { const parsed = sortProfileOrdersSchema.safeParse(await c.req.json()); if (!parsed.success) return jsonError(c, "Invalid input"); await saveCollectionSortProfileOrders(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.id, parsed.data.orders); return c.json({ ok: true }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Failed to save sort profile", 400); }
+});
+
+api.get("/collections/:mark/category-sorts", async (c) => {
+  try {
+    const token = c.req.header("X-Cloudmark-Token") || "";
+    return c.json({ sorts: await listCategorySorts(c.env.DB, c.req.param("mark"), token) });
+  } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Failed to load category sorts", 400); }
+});
+
+api.put("/collections/category-sorts", async (c) => {
+  try { const parsed = categorySortsSchema.safeParse(await c.req.json()); if (!parsed.success) return jsonError(c, "Invalid input"); await saveCategorySortsService(c.env.DB, parsed.data.mark, parsed.data.token, parsed.data.sorts); return c.json({ ok: true }); } catch (e) { return jsonError(c, e instanceof Error ? e.message : "Failed to save category sorts", 400); }
 });
 
 /** POST /api/collections/regenerate-token */

@@ -36,7 +36,8 @@ import {
   setStoredWriteToken,
   setTokenBackupAcknowledged,
 } from "@/client/lib/token-store";
-import { claimCollectionApi } from "@/client/lib/api";
+import { claimCollectionApi, saveCategorySortsApi } from "@/client/lib/api";
+import { ALL_CATEGORIES } from "@/client/hooks/use-bookmark-filter";
 import { useTranslations } from "@/client/i18n/context";
 import { BookmarkletLink } from "@/client/components/bookmarklet-link";
 import { CollectionSettingsFields } from "@/client/components/collection-settings-fields";
@@ -54,6 +55,7 @@ export function DocPage() {
   const [settings, setSettings] = useState<CollectionSettings>({
     ...DEFAULT_COLLECTION_SETTINGS,
   });
+  const [homeSort, setHomeSort] = useState("newest");
   const [openStep, setOpenStep] = useState<StepId>("name");
   const [done, setDone] = useState<Partial<Record<StepId, boolean>>>({});
   const [copied, setCopied] = useState<"token" | "code" | null>(null);
@@ -111,6 +113,11 @@ export function DocPage() {
           settings: nextSettings,
         });
         setSettings(result.settings);
+        await saveCategorySortsApi({
+          mark,
+          token: writeToken,
+          sorts: [{ category: nextSettings.homeCategory || ALL_CATEGORIES, value: homeSort }],
+        });
         setClaimed(true);
         return true;
       } catch (e) {
@@ -120,7 +127,7 @@ export function DocPage() {
         setSyncing(false);
       }
     },
-    [mark, writeToken, settings, t],
+    [mark, writeToken, settings, homeSort, t],
   );
 
   const completeStep = async (step: StepId) => {
@@ -361,6 +368,8 @@ export function DocPage() {
               setSettings(next);
               setClaimed(false);
             }}
+            homeSort={homeSort}
+            onHomeSortChange={setHomeSort}
             categories={[]}
             sortProfiles={[]}
             disabled={syncing}

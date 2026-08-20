@@ -463,6 +463,44 @@
   }
 }
 
+@keyframes category-name-scroll {
+  0%, 18% {
+    transform: translateX(0);
+  }
+  82%, 100% {
+    transform: translateX(var(--category-scroll-distance, 0px));
+  }
+}
+
+@keyframes category-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.category-content-transition {
+  animation: category-content-enter 180ms ease-out both;
+}
+
+.category-name-scroll-active {
+  animation: category-name-scroll 5s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category-name-scroll-active {
+    animation: none;
+  }
+
+  .category-content-transition {
+    animation: none;
+  }
+}
+
 /* Quick-start: two-chip drag-to-bookmarks-bar micro-demo (6.4s loop)
  * Chips sit in the same CSS grid columns as the bar slots, so they only
  * need a pure vertical flight (~5.15rem) into the matching slot.

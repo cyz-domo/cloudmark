@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router";
 import {
@@ -49,7 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/shared/utils";
-import { claimCollectionApi, fetchCollection, reorderBookmarksApi, reorderCategoriesApi, renameCategoryApi, deleteCategoryApi, saveSortProfileOrdersApi, createSortProfileApi, renameSortProfileApi, deleteSortProfileApi } from "@/client/lib/api";
+import { claimCollectionApi, fetchCollection, reorderBookmarksApi, reorderCategoriesApi, renameCategoryApi, deleteCategoryApi, saveSortProfileOrdersApi, createSortProfileApi, renameSortProfileApi, deleteSortProfileApi, saveCategorySortsApi } from "@/client/lib/api";
 import {
   clearStoredWriteToken,
   ensureLocalWriteToken,
@@ -143,6 +144,7 @@ export function CollectionPage() {
     ...DEFAULT_COLLECTION_SETTINGS,
   });
   const [sortProfiles, setSortProfiles] = useState<SortProfile[]>([]);
+  const [categorySorts, setCategorySorts] = useState<Record<string, string>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [activeSortProfileId, setActiveSortProfileId] = useState<string | null>(null);
   const [privateLocked, setPrivateLocked] = useState(false);
@@ -156,6 +158,10 @@ export function CollectionPage() {
   const [categoryOrderDirty, setCategoryOrderDirty] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
+  const [childCategoryParent, setChildCategoryParent] = useState<string | null>(null);
+  const [newChildCategoryName, setNewChildCategoryName] = useState("");
+  const [addingChildCategory, setAddingChildCategory] = useState(false);
+  const [categoryEditMode, setCategoryEditMode] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
@@ -175,7 +181,7 @@ export function CollectionPage() {
 
   const baseUrl = getBaseUrl();
   const bookmarks = data?.bookmarks ?? [];
-  const filter = useBookmarkFilter(bookmarks, categoryOrder);
+  const filter = useBookmarkFilter(bookmarks, categoryOrder, { groupSorts: categorySorts, profiles: sortProfiles });
   const {
     filtered,
     query,
@@ -188,7 +194,7 @@ export function CollectionPage() {
     sortDir,
     toggleSortColumn,
   } = filter;
-  const manualSort = sort === "manual";
+  const manualSort = sort === "manual" && category !== ALL_CATEGORIES;
 
   const updatePointerTarget = useCallback((x: number, y: number) => {
     const list = listRef.current;
@@ -338,12 +344,58 @@ export function CollectionPage() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [categoryOrderDirty]);
 
-  const selectHomeSort = (value: string) => {
-    const profile = sortProfiles.find((item) => item.id === value);
+  /** Apply a sort selection (fixed key or profile id) to the current view. */
+  const applySelection = (value: string, profiles: SortProfile[] = sortProfiles): SortProfile | undefined => {
+    const profile = profiles.find((item) => item.id === value);
     setActiveSortProfileId(profile?.id ?? null);
     setSort(profile ? "manual" : isFixedSortKey(value) ? value : "newest");
-    setData((previous) => previous && profile ? { ...previous, bookmarks: applySortProfile(previous.bookmarks, profile) } : previous);
+    return profile;
   };
+
+  const applyProfileToData = (profile?: SortProfile) => {
+    if (!profile) return;
+    setData((previous) => previous ? { ...previous, bookmarks: applySortProfile(previous.bookmarks, profile) } : previous);
+  };
+
+  const persistCategorySort = (value: string) => {
+    if (!writeToken) return;
+    const isAll = category === ALL_CATEGORIES;
+    const profile = sortProfiles.find((item) => item.id === value);
+    const key = isAll && profile ? profile.category : isAll ? ALL_CATEGORIES : category;
+    setCategorySorts((previous) => (previous[key] === value ? previous : { ...previous, [key]: value }));
+    void saveCategorySortsApi({ mark, token: writeToken, sorts: [{ category: key, value }] }).catch(() => {});
+  };
+
+  const selectHomeSort = (value: string) => {
+    const isAll = category === ALL_CATEGORIES;
+    const profile = applySelection(value);
+    if (!isAll) applyProfileToData(profile);
+    persistCategorySort(value);
+  };
+
+  const appliedSortCategoryRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (appliedSortCategoryRef.current === category) return;
+    appliedSortCategoryRef.current = category;
+    const isAll = category === ALL_CATEGORIES;
+    const sticky = isAll ? categorySorts[ALL_CATEGORIES] : (categorySorts[category] ?? categorySorts[ALL_CATEGORIES]);
+    if (sticky) {
+      const profile = applySelection(sticky);
+      if (!isAll) applyProfileToData(profile);
+    } else {
+      setActiveSortProfileId(null);
+      setSort("newest");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, categorySorts]);
+
+  // Discard un-saved drag reorders when switching groups so they are never
+  // written to another group's sort profile.
+  useEffect(() => {
+    setPendingOrders({});
+    setDraggedUuid(null);
+    setDragOverUuid(null);
+  }, [category]);
 
   const manageSortProfile = async (action: "create" | "rename" | "delete") => {
     if (!writeToken) return;
@@ -352,7 +404,8 @@ export function CollectionPage() {
     if (!input || (action === "delete" && input !== current?.name) || (action !== "create" && !current)) return;
     try {
       if (action === "create") {
-        const profile = await createSortProfileApi({ mark, token: writeToken, id: crypto.randomUUID(), name: input });
+        const profileCategory = category === ALL_CATEGORIES ? settings.homeCategory || "default" : category;
+        const profile = await createSortProfileApi({ mark, token: writeToken, id: crypto.randomUUID(), category: profileCategory, name: input });
         setSortProfiles((previous) => [...previous, profile]);
         selectHomeSort(profile.id);
       } else if (action === "rename" && current) {
@@ -361,6 +414,13 @@ export function CollectionPage() {
       } else if (current) {
         await deleteSortProfileApi({ mark, token: writeToken, id: current.id });
         setSortProfiles((previous) => previous.filter((profile) => profile.id !== current.id));
+        setCategorySorts((previous) => {
+          const next: Record<string, string> = {};
+          for (const [key, value] of Object.entries(previous)) {
+            if (value !== current.id) next[key] = value;
+          }
+          return next;
+        });
         setActiveSortProfileId(null);
         setSort("newest");
       }
@@ -435,14 +495,18 @@ export function CollectionPage() {
             uuids,
           }));
         if (activeSortProfileId) {
-          const pending = new Map(orders.map((order) => [order.category, order.uuids]));
+          // Sort profiles are scoped to a single group. Only persist orders
+          // belonging to the active profile's group; anything else falls back
+          // to the plain bookmark reorder so we never mix groups.
           const profile = sortProfiles.find((item) => item.id === activeSortProfileId);
-          const existing = new Map(profile?.orders.map((order) => [order.category, order.uuids]));
-          const allOrders = [...new Set(bookmarks.map((bookmark) => bookmark.category))].map((category) => ({
-            category,
-            uuids: pending.get(category) ?? existing.get(category) ?? bookmarks.filter((bookmark) => bookmark.category === category).map((bookmark) => bookmark.uuid),
-          }));
-          await saveSortProfileOrdersApi({ mark, token: writeToken, id: activeSortProfileId, orders: allOrders });
+          const scoped = profile ? orders.filter((order) => order.category === profile.category) : [];
+          if (scoped.length > 0) {
+            await saveSortProfileOrdersApi({ mark, token: writeToken, id: activeSortProfileId, orders: scoped });
+          }
+          const rest = orders.filter((order) => !scoped.includes(order));
+          if (rest.length > 0) {
+            await reorderBookmarksApi({ mark, token: writeToken, orders: rest });
+          }
         } else {
           await reorderBookmarksApi({ mark, token: writeToken, orders });
         }
@@ -486,6 +550,32 @@ export function CollectionPage() {
       toast.error(error instanceof Error ? error.message : "分类创建失败");
     } finally {
       setAddingCategory(false);
+    }
+  };
+
+  const addChildCategory = async () => {
+    if (!canWrite || !childCategoryParent) return;
+    const name = newChildCategoryName.trim();
+    const path = `${childCategoryParent} / ${name}`;
+    if (!name || name.includes(" / ") || path.length > 50 || categories.includes(path)) return;
+    const next = [...categories];
+    const lastDescendant = next.reduce(
+      (last, item, index) => (isCategoryInTree(item, childCategoryParent) ? index : last),
+      -1,
+    );
+    next.splice(lastDescendant >= 0 ? lastDescendant + 1 : next.indexOf(childCategoryParent) + 1, 0, path);
+    setAddingChildCategory(true);
+    try {
+      await reorderCategoriesApi({ mark, token: writeToken!, categories: next });
+      setCategoryOrder(next);
+      setCategoryOrderDirty(false);
+      setNewChildCategoryName("");
+      setChildCategoryParent(null);
+      toast.success("子分类已创建");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "子分类创建失败");
+    } finally {
+      setAddingChildCategory(false);
     }
   };
 
@@ -557,6 +647,7 @@ export function CollectionPage() {
     setLoading(true);
     setPrivateLocked(false);
     setCollectionExists(false);
+    appliedSortCategoryRef.current = null;
 
     const stored = isDemoMark(mark) ? null : getStoredWriteToken(mark);
     if (!isDemoMark(mark)) {
@@ -573,15 +664,18 @@ export function CollectionPage() {
         setCollectionExists(Boolean(page.exists));
         const nextSettings = page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS };
         const nextProfiles = page.sortProfiles ?? [];
-        const nextProfile = nextProfiles.find((profile) => profile.id === nextSettings.homeSortProfile);
+        const nextSorts = page.categorySorts ?? {};
         setSettings(nextSettings);
         setSortProfiles(nextProfiles);
-        setActiveSortProfileId(nextProfile?.id ?? null);
-        setCategory(nextSettings.homeCategory || ALL_CATEGORIES);
-        setSort(nextProfile ? "manual" : isFixedSortKey(nextSettings.homeSortProfile) ? nextSettings.homeSortProfile : "newest");
-        setData(nextProfile && page.bookmarksData
-          ? { ...page.bookmarksData, bookmarks: applySortProfile(page.bookmarksData.bookmarks, nextProfile) }
-          : page.bookmarksData ?? { mark, bookmarks: [] });
+        setCategorySorts(nextSorts);
+        const nextCategory = nextSettings.homeCategory || ALL_CATEGORIES;
+        const isAll = nextCategory === ALL_CATEGORIES;
+        setCategory(nextCategory);
+        const sticky = isAll ? nextSorts[ALL_CATEGORIES] : (nextSorts[nextCategory] ?? nextSorts[ALL_CATEGORIES]);
+        const profile = applySelection(sticky || "", nextProfiles);
+        setData(page.bookmarksData
+          ? { ...page.bookmarksData, bookmarks: !isAll && profile ? applySortProfile(page.bookmarksData.bookmarks, profile) : page.bookmarksData.bookmarks }
+          : { mark, bookmarks: [] });
         setCategoryOrder(page.categories ?? []);
         setIssuedWriteToken(page.issuedWriteToken);
         setMigratedFromKv(Boolean(page.migratedFromKv));
@@ -676,13 +770,17 @@ export function CollectionPage() {
       void fetchCollection(mark, token)
         .then((page) => {
           if (page.settings) {
-            const nextProfile = page.sortProfiles?.find((profile) => profile.id === page.settings?.homeSortProfile);
             setSettings(page.settings);
-            setActiveSortProfileId(nextProfile?.id ?? null);
-            setSort(nextProfile ? "manual" : isFixedSortKey(page.settings.homeSortProfile) ? page.settings.homeSortProfile : "newest");
-            if (page.bookmarksData) setData({ ...page.bookmarksData, bookmarks: nextProfile ? applySortProfile(page.bookmarksData.bookmarks, nextProfile) : page.bookmarksData.bookmarks });
+            setSortProfiles(page.sortProfiles ?? []);
+            const nextSorts = page.categorySorts ?? {};
+            setCategorySorts((previous) => ({ ...previous, ...nextSorts }));
+            const isAll = currentCategory === ALL_CATEGORIES;
+            const sticky = isAll ? nextSorts[ALL_CATEGORIES] : (nextSorts[currentCategory] ?? nextSorts[ALL_CATEGORIES]);
+            const profile = applySelection(sticky || "", page.sortProfiles ?? []);
+            if (page.bookmarksData) {
+              setData({ ...page.bookmarksData, bookmarks: !isAll && profile ? applySortProfile(page.bookmarksData.bookmarks, profile) : page.bookmarksData.bookmarks });
+            }
           } else if (page.bookmarksData) setData(page.bookmarksData);
-          if (page.bookmarksData) setData(page.bookmarksData);
           const categoryStillExists =
             currentCategory === ALL_CATEGORIES ||
             page.categories?.some((item) =>
@@ -834,17 +932,23 @@ export function CollectionPage() {
   }, []);
 
   const applyCollectionPage = useCallback(
-    (page: Awaited<ReturnType<typeof fetchCollection>>, token: string | null) => {
+    (page: Awaited<ReturnType<typeof fetchCollection>>, token: string | null, preferredCategory?: string) => {
       setCollectionExists(Boolean(page.exists));
       setPrivateLocked(Boolean(page.privateLocked));
       const nextSettings = page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS };
       setSettings(nextSettings);
-      setCategory(nextSettings.homeCategory || ALL_CATEGORIES);
-      setSortProfiles(page.sortProfiles ?? []);
-      const profile = page.sortProfiles?.find((item) => item.id === nextSettings.homeSortProfile);
-      setActiveSortProfileId(profile?.id ?? null);
-      setSort(profile ? "manual" : isFixedSortKey(nextSettings.homeSortProfile) ? nextSettings.homeSortProfile : "newest");
-      setData(page.bookmarksData ? { ...page.bookmarksData, bookmarks: applySortProfile(page.bookmarksData.bookmarks, profile) } : { mark, bookmarks: [] });
+      const nextProfiles = page.sortProfiles ?? [];
+      const nextSorts = page.categorySorts ?? {};
+      setSortProfiles(nextProfiles);
+      setCategorySorts(nextSorts);
+      const nextCategory = preferredCategory || nextSettings.homeCategory || ALL_CATEGORIES;
+      const isAll = nextCategory === ALL_CATEGORIES;
+      setCategory(nextCategory);
+      const sticky = isAll ? nextSorts[ALL_CATEGORIES] : (nextSorts[nextCategory] ?? nextSorts[ALL_CATEGORIES]);
+      const profile = applySelection(sticky || "", nextProfiles);
+      setData(page.bookmarksData
+        ? { ...page.bookmarksData, bookmarks: !isAll && profile ? applySortProfile(page.bookmarksData.bookmarks, profile) : page.bookmarksData.bookmarks }
+        : { mark, bookmarks: [] });
       setCategoryOrder(page.categories ?? []);
       setIssuedWriteToken(page.issuedWriteToken);
       setMigratedFromKv(Boolean(page.migratedFromKv));
@@ -905,7 +1009,6 @@ export function CollectionPage() {
         mark,
         writeToken ?? getStoredWriteToken(mark),
       );
-      applyCollectionPage(page, writeToken);
       const categoryStillExists =
         currentCategory === ALL_CATEGORIES ||
         page.categories?.some((item) =>
@@ -914,14 +1017,18 @@ export function CollectionPage() {
         page.bookmarksData?.bookmarks.some((bookmark) =>
           isCategoryInTree(bookmark.category, currentCategory),
         );
-      setCategory(categoryStillExists ? currentCategory : ALL_CATEGORIES);
+      applyCollectionPage(
+        page,
+        writeToken,
+        categoryStillExists ? currentCategory : ALL_CATEGORIES,
+      );
       toast.success("收藏页已刷新");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "刷新失败");
     } finally {
       setRefreshing(false);
     }
-  }, [applyCollectionPage, category, mark, setCategory, writeToken]);
+  }, [applyCollectionPage, category, mark, writeToken]);
 
   const onBookmarkAdded = useCallback(
     (bookmark: BookmarkInstance) => {
@@ -1392,7 +1499,24 @@ export function CollectionPage() {
         <aside className="hidden w-48 shrink-0 flex-col md:flex">
           <div className="mb-2 flex items-center gap-1.5 px-2.5 text-2xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <Folder className="h-3 w-3" />
-            {ts("categories")}
+            <span className="flex-1">{ts("categories")}</span>
+            {canWrite && (
+              <Button
+                type="button"
+                variant={categoryEditMode ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 px-1.5 text-2xs normal-case tracking-normal"
+                onClick={() => {
+                  setCategoryEditMode((value) => !value);
+                  setChildCategoryParent(null);
+                  setNewChildCategoryName("");
+                  setNewCategoryName("");
+                }}
+              >
+                <Pencil className="mr-1 h-3 w-3" />
+                {categoryEditMode ? "完成" : "编辑"}
+              </Button>
+            )}
           </div>
           <nav className="space-y-1 rounded-xl border border-border/60 bg-card/50 p-1.5 shadow-sm backdrop-blur-sm">
             <CategoryButton
@@ -1400,6 +1524,7 @@ export function CollectionPage() {
               label={ts("all")}
               count={filter.total}
               shortcut="0"
+              editMode={categoryEditMode}
               onClick={() => setCategory(ALL_CATEGORIES)}
             />
             {buildCategoryTree(filter.categories).map((node, i) => (
@@ -1411,15 +1536,23 @@ export function CollectionPage() {
                 managedCategories={filter.categories}
                 shortcut={i < 9 ? String(i + 1) : undefined}
                 canWrite={canWrite}
+                editMode={categoryEditMode}
+                childCategoryParent={childCategoryParent}
+                newChildCategoryName={newChildCategoryName}
+                addingChildCategory={addingChildCategory}
                 onSelect={setCategory}
                 onDragStart={setDraggedCategory}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={moveCategory}
                 onRename={(cat) => void renameCurrentCategory(cat)}
                 onDelete={(cat) => void deleteCurrentCategory(cat)}
+                onAddChild={(cat) => { setChildCategoryParent(cat); setNewChildCategoryName(""); }}
+                onChildCategoryNameChange={setNewChildCategoryName}
+                onAddChildSubmit={() => void addChildCategory()}
+                onCancelAddChild={() => { setChildCategoryParent(null); setNewChildCategoryName(""); }}
               />
             ))}
-            {canWrite ? (
+            {canWrite && categoryEditMode ? (
               <form className="mt-1 flex gap-1" onSubmit={(event) => { event.preventDefault(); void addCategory(); }}>
                 <Input value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="新建分类" className="h-8 min-w-0 text-xs" maxLength={50} disabled={addingCategory} />
                 <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2" disabled={!newCategoryName.trim() || addingCategory}>＋</Button>
@@ -1483,7 +1616,11 @@ export function CollectionPage() {
                 </SelectItem>
                 <SelectItem value="url">{ts("sortUrlAsc")}</SelectItem>
                 <SelectItem value="url-desc">{ts("sortUrlDesc")}</SelectItem>
-                {sortProfiles.length > 0 && sortProfiles.map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>)}
+                {(category === ALL_CATEGORIES ? sortProfiles : sortProfiles.filter((profile) => profile.category === category)).map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id}>
+                    {category === ALL_CATEGORIES && profile.category !== "" ? `${profile.name}（${profile.category}）` : profile.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button
@@ -1653,6 +1790,7 @@ export function CollectionPage() {
             aria-label={t("title")}
             className="min-h-0 flex-1 overflow-y-auto"
           >
+            <div key={category} className="category-content-transition">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-4 px-4 py-20 text-center">
                 <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border/70 bg-muted/40 text-muted-foreground/70">
@@ -1725,6 +1863,7 @@ export function CollectionPage() {
                 />
               ))
             )}
+            </div>
           </div>
         </div>
       </div>
@@ -1803,13 +1942,16 @@ export function CollectionPage() {
           settings={settings}
           categories={categories}
           sortProfiles={sortProfiles}
-          onSaved={(next) => {
+          categorySorts={categorySorts}
+          onSaved={(next, homeSort) => {
             setSettings(next);
-            setCategory(next.homeCategory || ALL_CATEGORIES);
-            const profile = sortProfiles.find((item) => item.id === next.homeSortProfile);
-            setActiveSortProfileId(profile?.id ?? null);
-            setSort(profile ? "manual" : isFixedSortKey(next.homeSortProfile) ? next.homeSortProfile : "newest");
-            setData((previous) => previous ? { ...previous, bookmarks: applySortProfile(previous.bookmarks, profile) } : previous);
+            const nextCategory = next.homeCategory || ALL_CATEGORIES;
+            setCategory(nextCategory);
+            const isAll = nextCategory === ALL_CATEGORIES;
+            const key = isAll ? ALL_CATEGORIES : nextCategory;
+            setCategorySorts((previous) => ({ ...previous, [key]: homeSort }));
+            const profile = applySelection(homeSort);
+            if (!isAll) applyProfileToData(profile);
           }}
         />
       )}
@@ -1825,6 +1967,8 @@ function CategoryButton({
   onClick,
   onRename,
   onDelete,
+  onAddChild,
+  editMode,
   indent = 0,
   parent = false,
   expanded = false,
@@ -1836,10 +1980,30 @@ function CategoryButton({
   onClick: () => void;
   onRename?: () => void;
   onDelete?: () => void;
+  onAddChild?: () => void;
+  editMode: boolean;
   indent?: number;
   parent?: boolean;
   expanded?: boolean;
 }) {
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const [labelOverflows, setLabelOverflows] = useState(false);
+  const [labelScrollDistance, setLabelScrollDistance] = useState(0);
+
+  useEffect(() => {
+    const element = labelRef.current;
+    if (!element) return;
+    const update = () => {
+      const distance = Math.max(0, element.scrollWidth - element.clientWidth);
+      setLabelScrollDistance(distance);
+      setLabelOverflows(distance > 1);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [label]);
+
   return (
     <div
       role="button"
@@ -1848,46 +2012,48 @@ function CategoryButton({
       onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } }}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "group/cat flex w-full items-center gap-2 rounded-lg py-2 text-left text-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        indent ? "pl-1.5 pr-2" : "px-2.5",
-        active
-          ? "bg-primary font-semibold text-primary-foreground shadow-sm"
-          : "text-muted-foreground hover:bg-muted/90 hover:text-foreground",
+        "group/cat w-full cursor-pointer rounded-lg text-left text-xs transition-all duration-300 ease-out",
+        active ? "bg-primary font-semibold text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/90 hover:text-foreground",
       )}
     >
-      <GripVertical className="h-3 w-3 shrink-0 opacity-40" aria-hidden />
-      {parent ? (expanded ? <ChevronDown className="h-3 w-3 shrink-0 opacity-60" aria-hidden /> : <ChevronRight className="h-3 w-3 shrink-0 opacity-60" aria-hidden />) : <span className="h-3 w-3 shrink-0" />}
-      {parent && <Folder className="h-3 w-3 shrink-0 opacity-60" aria-hidden />}
-      <span
+      <div
+        title={label}
         className={cn(
-          "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
-          active ? "bg-primary-foreground" : "bg-border group-hover/cat:bg-muted-foreground/50",
-        )}
-        aria-hidden
-      />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span
-        className={cn(
-          "rounded-md px-1.5 py-0.5 tabular-nums text-2xs font-medium",
-          active
-            ? "bg-primary-foreground/15 text-primary-foreground"
-            : "bg-muted text-muted-foreground",
+          "flex w-full min-w-0 items-center gap-2 py-2",
+          indent ? "pl-1.5 pr-2" : "px-2.5",
         )}
       >
-        {count}
-      </span>
-      {shortcut ? (
-        <kbd
+        <GripVertical className="h-3 w-3 shrink-0 opacity-40" aria-hidden />
+        {parent ? (expanded ? <ChevronDown className="h-3 w-3 shrink-0 opacity-60" aria-hidden /> : <ChevronRight className="h-3 w-3 shrink-0 opacity-60" aria-hidden />) : <span className="h-3 w-3 shrink-0" />}
+        {parent && <Folder className="h-3 w-3 shrink-0 opacity-60" aria-hidden />}
+        <span
           className={cn(
-            "ml-0.5 hidden opacity-80 lg:inline-flex",
-            active && "border-primary-foreground/25 bg-primary-foreground/10 text-primary-foreground",
+            "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+            active ? "bg-primary-foreground" : "bg-border group-hover/cat:bg-muted-foreground/50",
           )}
-        >
-          {shortcut}
-        </kbd>
-      ) : null}
-      {onRename && <button type="button" className="ml-1 hidden text-[10px] opacity-60 group-hover/cat:inline" onClick={(event) => { event.stopPropagation(); onRename(); }}>改</button>}
-      {onDelete && <button type="button" className="hidden text-[10px] text-destructive opacity-70 group-hover/cat:inline" onClick={(event) => { event.stopPropagation(); onDelete(); }}>删</button>}
+          aria-hidden
+        />
+        <span ref={labelRef} className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+          <span
+            className={cn("inline-block whitespace-nowrap", labelOverflows && "category-name-scroll group-hover/cat:category-name-scroll-active")}
+            style={{ "--category-scroll-distance": `-${labelScrollDistance}px` } as CSSProperties}
+          >
+            {label}
+          </span>
+        </span>
+        <span className={cn("rounded-md px-1.5 py-0.5 tabular-nums text-2xs font-medium", active ? "bg-primary-foreground/15 text-primary-foreground" : "bg-muted text-muted-foreground")}>
+          {count}
+        </span>
+      </div>
+      {editMode && (onAddChild || onRename || onDelete || shortcut) && (
+        <div className={cn("flex items-center gap-2 px-2.5 pb-1.5 text-2xs", indent && "pl-7")} onClick={(event) => event.stopPropagation()}>
+          {shortcut && <kbd className={cn("border-border/60 px-1 opacity-70", active && "border-primary-foreground/35 bg-primary-foreground/15 text-primary-foreground opacity-100")}>快捷键 {shortcut}</kbd>}
+          <span className="flex-1" />
+          {onAddChild && <button type="button" className="opacity-70 hover:opacity-100" onClick={onAddChild}>＋子分类</button>}
+          {onRename && <button type="button" className="opacity-70 hover:opacity-100" onClick={onRename}>改</button>}
+          {onDelete && <button type="button" className="text-destructive opacity-80 hover:opacity-100" onClick={onDelete}>删</button>}
+        </div>
+      )}
     </div>
   );
 }
@@ -1922,6 +2088,10 @@ function CategoryTreeItem({
   activeCategory,
   counts,
   managedCategories,
+  editMode,
+  childCategoryParent,
+  newChildCategoryName,
+  addingChildCategory,
   shortcut,
   canWrite,
   onSelect,
@@ -1930,11 +2100,19 @@ function CategoryTreeItem({
   onDrop,
   onRename,
   onDelete,
+  onAddChild,
+  onChildCategoryNameChange,
+  onAddChildSubmit,
+  onCancelAddChild,
 }: {
   node: CategoryTreeNode;
   activeCategory: string;
   counts: Map<string, number>;
   managedCategories: string[];
+  editMode: boolean;
+  childCategoryParent: string | null;
+  newChildCategoryName: string;
+  addingChildCategory: boolean;
   shortcut?: string;
   canWrite: boolean;
   onSelect: (category: string) => void;
@@ -1943,6 +2121,10 @@ function CategoryTreeItem({
   onDrop: (category: string) => void;
   onRename: (category: string) => void;
   onDelete: (category: string) => void;
+  onAddChild: (category: string) => void;
+  onChildCategoryNameChange: (name: string) => void;
+  onAddChildSubmit: () => void;
+  onCancelAddChild: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const count = [...counts.entries()]
@@ -1954,8 +2136,8 @@ function CategoryTreeItem({
   return (
     <div
       className="group/category relative"
-      draggable={canWrite && isManaged}
-      onDragStart={() => isManaged && onDragStart(node.path)}
+      draggable={canWrite && editMode && isManaged}
+      onDragStart={() => isManaged && editMode && onDragStart(node.path)}
       onDragOver={onDragOver}
       onDrop={() => onDrop(node.path)}
       onDoubleClick={(event) => {
@@ -1973,8 +2155,28 @@ function CategoryTreeItem({
         onClick={() => onSelect(node.path)}
         onRename={!isFolderPath || node.path === "default" ? undefined : () => onRename(node.path)}
         onDelete={!isFolderPath || node.path === "default" ? undefined : () => onDelete(node.path)}
+        editMode={editMode}
+        onAddChild={canWrite && editMode ? () => { setExpanded(true); onAddChild(node.path); } : undefined}
         expanded={expanded}
       />
+      {editMode && childCategoryParent === node.path && (
+        <form
+          className="ml-3 flex gap-1 border-l border-border/40 py-1 pl-1"
+          onSubmit={(event) => { event.preventDefault(); onAddChildSubmit(); }}
+        >
+          <Input
+            value={newChildCategoryName}
+            onChange={(event) => onChildCategoryNameChange(event.target.value)}
+            placeholder="新建子分类"
+            className="h-7 min-w-0 text-xs"
+            maxLength={50}
+            autoFocus
+            disabled={addingChildCategory}
+          />
+          <Button type="submit" size="sm" variant="outline" className="h-7 shrink-0 px-2" disabled={!newChildCategoryName.trim() || addingChildCategory}>＋</Button>
+          <Button type="button" size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={onCancelAddChild} disabled={addingChildCategory}>×</Button>
+        </form>
+      )}
       {expanded && node.children.length > 0 && (
         <div className="ml-3 border-l border-border/40 pl-1">
           {node.children.map((child) => (
@@ -1984,6 +2186,10 @@ function CategoryTreeItem({
               activeCategory={activeCategory}
               counts={counts}
               managedCategories={managedCategories}
+              editMode={editMode}
+              childCategoryParent={childCategoryParent}
+              newChildCategoryName={newChildCategoryName}
+              addingChildCategory={addingChildCategory}
               canWrite={canWrite}
               onSelect={onSelect}
               onDragStart={onDragStart}
@@ -1991,6 +2197,10 @@ function CategoryTreeItem({
               onDrop={onDrop}
               onRename={onRename}
               onDelete={onDelete}
+              onAddChild={onAddChild}
+              onChildCategoryNameChange={onChildCategoryNameChange}
+              onAddChildSubmit={onAddChildSubmit}
+              onCancelAddChild={onCancelAddChild}
             />
           ))}
         </div>

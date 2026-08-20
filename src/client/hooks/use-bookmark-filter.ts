@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type { BookmarkInstance } from "@/shared/types";
+import type { BookmarkInstance, SortProfile } from "@/shared/types";
 import { getDomain } from "@/shared/utils";
 
 /** Sortable columns in the bookmark table */
@@ -134,7 +134,11 @@ export function defaultDirForColumn(column: SortColumn): SortDir {
   return column === "date" ? "desc" : "asc";
 }
 
-export function useBookmarkFilter(bookmarks: BookmarkInstance[], categoryOrder: string[] = []) {
+export function useBookmarkFilter(
+  bookmarks: BookmarkInstance[],
+  categoryOrder: string[] = [],
+  options?: { groupSorts?: Record<string, string>; profiles?: SortProfile[] },
+) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>(ALL_CATEGORIES);
   const [sortColumn, setSortColumn] = useState<SortColumn>("date");
@@ -167,8 +171,34 @@ export function useBookmarkFilter(bookmarks: BookmarkInstance[], categoryOrder: 
     if (query.trim()) {
       list = list.filter((b) => matchesQuery(b, query));
     }
+    // In the all-categories view each group applies its own remembered sort.
+    if (
+      category === ALL_CATEGORIES &&
+      options?.groupSorts &&
+      Object.keys(options.groupSorts).length > 0
+    ) {
+      const byGroup = new Map<string, BookmarkInstance[]>();
+      for (const b of list) {
+        const arr = byGroup.get(b.category) ?? [];
+        arr.push(b);
+        byGroup.set(b.category, arr);
+      }
+      const orderedKeys = [
+        ...categoryOrder.filter((key) => byGroup.has(key)),
+        ...[...byGroup.keys()]
+          .filter((key) => !categoryOrder.includes(key))
+          .sort((a, b) => a.localeCompare(b)),
+      ];
+      const out: BookmarkInstance[] = [];
+      for (const cat of orderedKeys) {
+        const items = byGroup.get(cat) ?? [];
+        const allFallback = options.groupSorts[ALL_CATEGORIES];
+        out.push(...sortGroup(items, options.groupSorts[cat] ?? allFallback, options.profiles ?? []));
+      }
+      return out;
+    }
     return sortBookmarks(list, sortColumn, sortDir);
-  }, [bookmarks, category, query, sortColumn, sortDir]);
+  }, [bookmarks, category, query, sortColumn, sortDir, categoryOrder, options?.groupSorts, options?.profiles]);
 
   const sort = stateToSortKey(sortColumn, sortDir);
 
@@ -208,3 +238,30 @@ export function useBookmarkFilter(bookmarks: BookmarkInstance[], categoryOrder: 
     total: bookmarks.length,
   };
 }
+
+function sortGroup(
+  items: BookmarkInstance[],
+  value: string | undefined,
+  profiles: SortProfile[],
+): BookmarkInstance[] {
+  const profile = profiles.find((p) => p.id === value);
+  if (profile) {
+    const order = new Map(
+      profile.orders.flatMap(({ uuids }, categoryIndex) =>
+        uuids.map((uuid, itemIndex) => [uuid, categoryIndex * 10000 + itemIndex] as const),
+      ),
+    );
+    return [...items].sort(
+      (a, b) =>
+        (order.get(a.uuid) ?? Number.MAX_SAFE_INTEGER) -
+        (order.get(b.uuid) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }
+  if (value && FIXED_KEYS.has(value)) {
+    const { column, dir } = sortKeyToState(value as SortKey);
+    return sortBookmarks(items, column, dir);
+  }
+  return sortBookmarks(items, "date", "desc");
+}
+
+const FIXED_KEYS = new Set(["newest", "oldest", "title", "title-desc", "category", "category-desc", "url", "url-desc", "manual"]);

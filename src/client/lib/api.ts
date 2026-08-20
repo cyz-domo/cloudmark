@@ -50,7 +50,6 @@ export async function updateCollectionSettingsApi(input: {
   homeCategory?: string;
   isPublic?: boolean;
   backgroundUrl?: string;
-  homeSortProfile?: string;
 }): Promise<CollectionSettings> {
   const res = await fetch("/api/collections/settings", {
     method: "PUT",
@@ -61,7 +60,7 @@ export async function updateCollectionSettingsApi(input: {
   return data.settings;
 }
 
-export async function createSortProfileApi(input: { mark: string; token: string; id: string; name: string }): Promise<SortProfile> {
+export async function createSortProfileApi(input: { mark: string; token: string; id: string; category: string; name: string }): Promise<SortProfile> {
   const res = await fetch("/api/collections/sort-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
   return (await parseJson<{ profile: SortProfile }>(res)).profile;
 }
@@ -73,6 +72,15 @@ export async function deleteSortProfileApi(input: { mark: string; token: string;
 }
 export async function saveSortProfileOrdersApi(input: { mark: string; token: string; id: string; orders: Array<{ category: string; uuids: string[] }> }): Promise<void> {
   const res = await fetch("/api/collections/sort-profiles/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); await parseJson(res);
+}
+
+export async function fetchCategorySortsApi(mark: string, writeToken: string): Promise<Record<string, string>> {
+  const res = await fetch(`/api/collections/${encodeURIComponent(mark)}/category-sorts`, { headers: { "X-Cloudmark-Token": writeToken } });
+  return (await parseJson<{ sorts: Record<string, string> }>(res)).sorts;
+}
+
+export async function saveCategorySortsApi(input: { mark: string; token: string; sorts: Array<{ category: string; value: string }> }): Promise<void> {
+  const res = await fetch("/api/collections/category-sorts", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); await parseJson(res);
 }
 
 export async function reorderBookmarksApi(input: {

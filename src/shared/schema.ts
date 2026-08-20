@@ -103,13 +103,17 @@ export const updateCollectionSettingsSchema = z.object({
   redirectAfterSave: z.boolean().optional(),
   defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH).optional(),
   homeCategory: z.string().max(CATEGORY_MAX_LENGTH).optional(),
-  homeSortProfile: z.string().max(64).optional(),
   isPublic: z.boolean().optional(),
   backgroundUrl: z.string().url().max(5 * 1024 * 1024).refine((value) => /^https?:\/\//i.test(value), "Background URL must start with http:// or https://").optional().or(z.literal("")),
 });
 
-export const sortProfileSchema = z.object({ mark: markSchema, token: tokenSchema, id: z.string().min(1).max(64), name: z.string().trim().min(1).max(80) });
+export const sortProfileSchema = z.object({ mark: markSchema, token: tokenSchema, id: z.string().min(1).max(64), category: z.string().min(1).max(CATEGORY_MAX_LENGTH), name: z.string().trim().min(1).max(80) });
+export const sortProfileRenameSchema = z.object({ mark: markSchema, token: tokenSchema, id: z.string().min(1).max(64), name: z.string().trim().min(1).max(80) });
+/** For rename/delete: id + auth only (no name/category required). */
+export const sortProfileIdSchema = z.object({ mark: markSchema, token: tokenSchema, id: z.string().min(1).max(64) });
 export const sortProfileOrdersSchema = z.object({ mark: markSchema, token: tokenSchema, id: z.string().min(1).max(64), orders: z.array(z.object({ category: z.string().min(1).max(CATEGORY_MAX_LENGTH), uuids: z.array(z.string().min(1).max(64)).max(500) })).max(50) });
+
+export const categorySortsSchema = z.object({ mark: markSchema, token: tokenSchema, sorts: z.array(z.object({ category: z.string().min(1).max(CATEGORY_MAX_LENGTH), value: z.string().max(64) })).max(100) });
 
 export const reorderBookmarksSchema = z.object({
   mark: markSchema,
