@@ -1558,7 +1558,9 @@ export function CollectionPage() {
                 <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2" disabled={!newCategoryName.trim() || addingCategory}>＋</Button>
               </form>
             ) : (
-              <p className="mt-1 px-2 py-1.5 text-2xs text-muted-foreground">演示集合为只读</p>
+              <p className="mt-1 px-2 py-1.5 text-2xs text-muted-foreground">
+                {isDemoMark(mark) ? "演示集合为只读" : "当前集合为只读，请输入写入令牌"}
+              </p>
             )}
           </nav>
         </aside>
