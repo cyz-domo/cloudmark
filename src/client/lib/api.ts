@@ -3,6 +3,7 @@ import type {
   CollectionPageData,
   CollectionSettings,
   SortProfile,
+  TokenPolicy,
 } from "@/shared/types";
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -33,6 +34,7 @@ export async function claimCollectionApi(input: {
   mark: string;
   token: string;
   settings?: CollectionSettings;
+  tokenPolicy?: TokenPolicy;
 }): Promise<{ mark: string; created: boolean; settings: CollectionSettings }> {
   const res = await fetch("/api/collections/claim", {
     method: "POST",
@@ -169,6 +171,7 @@ export async function regenerateTokenApi(input: {
   mark: string;
   currentToken: string;
   newToken: string;
+  tokenPolicy: TokenPolicy;
 }): Promise<{ mark: string; token: string }> {
   const res = await fetch("/api/collections/regenerate-token", {
     method: "POST",

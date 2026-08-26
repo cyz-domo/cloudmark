@@ -24,11 +24,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { generateRandomMark, getBaseUrl, cn } from "@/shared/utils";
-import { generateWriteToken } from "@/shared/security";
+import { generateWriteToken, isValidTokenForPolicy } from "@/shared/security";
 import { buildBookmarkletCode } from "@/shared/bookmarklet";
 import {
   DEFAULT_COLLECTION_SETTINGS,
   type CollectionSettings,
+  DEFAULT_TOKEN_POLICY,
+  type TokenPolicy,
 } from "@/shared/types";
 import {
   downloadTokenBackup,
@@ -42,6 +44,7 @@ import { useTranslations } from "@/client/i18n/context";
 import { BookmarkletLink } from "@/client/components/bookmarklet-link";
 import { CollectionSettingsFields } from "@/client/components/collection-settings-fields";
 import { DragBookmarkletDemo } from "@/client/components/drag-bookmarklet-demo";
+import { TokenPolicyFields } from "@/client/components/token-policy-fields";
 
 type StepId = "name" | "token" | "settings" | "install";
 
@@ -52,6 +55,8 @@ export function DocPage() {
   const navigate = useNavigate();
   const [mark, setMark] = useState("");
   const [writeToken, setWriteToken] = useState("");
+  const [tokenMode, setTokenMode] = useState<"random" | "custom">("random");
+  const [tokenPolicy, setTokenPolicy] = useState<TokenPolicy>(DEFAULT_TOKEN_POLICY);
   const [settings, setSettings] = useState<CollectionSettings>({
     ...DEFAULT_COLLECTION_SETTINGS,
   });
@@ -63,6 +68,10 @@ export function DocPage() {
   const [claimed, setClaimed] = useState(false);
 
   const baseUrl = getBaseUrl();
+
+  useEffect(() => {
+    if (tokenMode === "random") setWriteToken(generateWriteToken(tokenPolicy));
+  }, [tokenMode, tokenPolicy]);
 
   const bookmarkletCode = useMemo(() => {
     if (!mark || !writeToken) return "";
@@ -107,10 +116,11 @@ export function DocPage() {
       if (!mark || !writeToken) return false;
       setSyncing(true);
       try {
-        const result = await claimCollectionApi({
+      const result = await claimCollectionApi({
           mark,
           token: writeToken,
           settings: nextSettings,
+          tokenPolicy,
         });
         setSettings(result.settings);
         await saveCategorySortsApi({
@@ -127,7 +137,7 @@ export function DocPage() {
         setSyncing(false);
       }
     },
-    [mark, writeToken, settings, homeSort, t],
+    [mark, writeToken, settings, tokenPolicy, homeSort, t],
   );
 
   const completeStep = async (step: StepId) => {
@@ -145,6 +155,10 @@ export function DocPage() {
     if (step === "token") {
       if (!isTokenBackupAcknowledged(mark)) {
         toast.error(t("setup.token.mustBackup"));
+        return;
+      }
+      if (!isValidTokenForPolicy(writeToken, tokenPolicy)) {
+        toast.error("令牌不符合当前安全规则");
         return;
       }
       // Claim immediately with defaults so later private settings / open cannot race.
@@ -294,6 +308,14 @@ export function DocPage() {
           onToggle={() => toggleStep("token")}
         >
           <div className="space-y-3">
+            <div className="flex rounded-lg border border-border/70 p-1 text-xs">
+              <button type="button" className={cn("flex-1 rounded-md px-2 py-1.5", tokenMode === "random" && "bg-primary text-primary-foreground")} onClick={() => setTokenMode("random")}>随机令牌</button>
+              <button type="button" className={cn("flex-1 rounded-md px-2 py-1.5", tokenMode === "custom" && "bg-primary text-primary-foreground")} onClick={() => setTokenMode("custom")}>自定义令牌</button>
+            </div>
+            <TokenPolicyFields value={tokenPolicy} onChange={setTokenPolicy} />
+            {tokenMode === "custom" && (
+              <Input value={writeToken} onChange={(event) => setWriteToken(event.target.value)} className="h-10 font-mono text-xs" placeholder="输入自定义令牌" autoComplete="off" />
+            )}
             <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5">
               <p className="break-all font-mono text-xs leading-relaxed">
                 {writeToken}

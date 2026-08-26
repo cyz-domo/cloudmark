@@ -99,6 +99,7 @@ api.post("/collections/claim", async (c) => {
       parsed.data.mark,
       parsed.data.token,
       parsed.data.settings,
+      parsed.data.tokenPolicy,
     );
     return c.json(result);
   } catch (e) {
@@ -173,6 +174,7 @@ api.post("/collections/regenerate-token", async (c) => {
       parsed.data.mark,
       parsed.data.currentToken,
       parsed.data.newToken,
+      parsed.data.tokenPolicy,
     );
     return c.json(result);
   } catch (e) {

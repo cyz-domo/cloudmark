@@ -1919,6 +1919,8 @@ export function CollectionPage() {
           onOpenChange={setTokenOpen}
           writeToken={writeToken}
           issuedWriteToken={issuedWriteToken}
+          tokenPolicy={settings.tokenPolicy}
+          onTokenPolicyChange={(tokenPolicy) => setSettings((previous) => ({ ...previous, tokenPolicy }))}
           onTokenReady={onTokenReady}
         />
       )}

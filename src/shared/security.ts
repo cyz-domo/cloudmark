@@ -7,14 +7,26 @@ import {
   TOKEN_MAX_LENGTH,
   TOKEN_MIN_LENGTH,
 } from "./constants";
+import { DEFAULT_TOKEN_POLICY, type TokenPolicy } from "./types";
 
 /**
  * Generate a high-entropy write token (base64url, ~32 chars of entropy).
  */
-export function generateWriteToken(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return `tok_${bytesToBase64Url(bytes)}`;
+export function generateWriteToken(policy: TokenPolicy = DEFAULT_TOKEN_POLICY): string {
+  const length = Math.max(32, policy.minLength);
+  const required = [
+    policy.requireUppercase ? "A" : "",
+    policy.requireLowercase ? "a" : "",
+    policy.requireDigit ? "0" : "",
+  ].filter(Boolean).map((kind) => kind === "A" ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : kind === "a" ? "abcdefghijklmnopqrstuvwxyz" : "0123456789");
+  const alphabet = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-${policy.allowAt ? "@" : ""}`;
+  const chars = required.map((set) => randomChar(set));
+  while (chars.length < length) chars.push(randomChar(alphabet));
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomIndex(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
 }
 
 /**
@@ -76,8 +88,38 @@ export function isValidTokenFormat(token: string): boolean {
   return (
     token.length >= TOKEN_MIN_LENGTH &&
     token.length <= TOKEN_MAX_LENGTH &&
-    /^[a-zA-Z0-9_-]+$/.test(token)
+    /^[a-zA-Z0-9_\-@]+$/.test(token)
   );
+}
+
+export function normalizeTokenPolicy(policy?: Partial<TokenPolicy> | null): TokenPolicy {
+  const next = { ...DEFAULT_TOKEN_POLICY, ...(policy ?? {}) };
+  return {
+    minLength: Math.min(TOKEN_MAX_LENGTH, Math.max(TOKEN_MIN_LENGTH, Math.floor(Number(next.minLength) || DEFAULT_TOKEN_POLICY.minLength))),
+    requireUppercase: Boolean(next.requireUppercase),
+    requireLowercase: Boolean(next.requireLowercase),
+    requireDigit: Boolean(next.requireDigit),
+    allowAt: Boolean(next.allowAt),
+  };
+}
+
+export function isValidTokenForPolicy(token: string, policy?: Partial<TokenPolicy> | null): boolean {
+  const rule = normalizeTokenPolicy(policy);
+  if (!isValidTokenFormat(token) || token.length < rule.minLength) return false;
+  if (!rule.allowAt && token.includes("@")) return false;
+  if (rule.requireUppercase && !/[A-Z]/.test(token)) return false;
+  if (rule.requireLowercase && !/[a-z]/.test(token)) return false;
+  if (rule.requireDigit && !/[0-9]/.test(token)) return false;
+  if (isWeakToken(token)) return false;
+  return true;
+}
+
+function isWeakToken(token: string): boolean {
+  const normalized = token.toLowerCase();
+  if (["password", "password1", "qwerty123", "admin123", "letmein1", "abcdefgh"].includes(normalized)) return true;
+  if (/^(.)\1+$/.test(token) || /(.)\1{3,}/.test(token)) return true;
+  if (/^(?:0123456789|1234567890|abcdefghijklmnopqrstuvwxyz)$/i.test(token)) return true;
+  return false;
 }
 
 /**
@@ -120,6 +162,16 @@ function bytesToBase64Url(bytes: Uint8Array): string {
     binary += String.fromCharCode(b);
   }
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function randomIndex(max: number): number {
+  const values = new Uint32Array(1);
+  crypto.getRandomValues(values);
+  return values[0] % max;
+}
+
+function randomChar(alphabet: string): string {
+  return alphabet[randomIndex(alphabet.length)]!;
 }
 
 /**

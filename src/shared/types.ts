@@ -25,7 +25,24 @@ export interface CollectionSettings {
   isPublic: boolean;
   /** Optional external image URL used as the collection background */
   backgroundUrl: string;
+  tokenPolicy: TokenPolicy;
 }
+
+export interface TokenPolicy {
+  minLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireDigit: boolean;
+  allowAt: boolean;
+}
+
+export const DEFAULT_TOKEN_POLICY: TokenPolicy = {
+  minLength: 8,
+  requireUppercase: true,
+  requireLowercase: true,
+  requireDigit: true,
+  allowAt: true,
+};
 
 export const DEFAULT_COLLECTION_SETTINGS: CollectionSettings = {
   redirectAfterSave: true,
@@ -33,6 +50,7 @@ export const DEFAULT_COLLECTION_SETTINGS: CollectionSettings = {
   homeCategory: "",
   isPublic: true,
   backgroundUrl: "",
+  tokenPolicy: DEFAULT_TOKEN_POLICY,
 };
 
 /**

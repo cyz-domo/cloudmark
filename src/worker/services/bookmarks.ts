@@ -40,6 +40,8 @@ import {
   hashWriteToken,
   isValidMarkFormat,
   verifyWriteToken,
+  isValidTokenForPolicy,
+  normalizeTokenPolicy,
 } from "@/shared/security";
 import {
   type BookmarkInstance,
@@ -48,6 +50,7 @@ import {
   DEFAULT_COLLECTION_SETTINGS,
   defaultCategory,
   isDemoMark,
+  type TokenPolicy,
 } from "@/shared/types";
 
 export async function getFavicon(url: string, size: number = 64) {
@@ -288,6 +291,7 @@ export async function claimCollection(
   mark: string,
   token: string,
   settings?: Partial<CollectionSettings>,
+  tokenPolicy?: TokenPolicy,
 ): Promise<{ mark: string; created: boolean; settings: CollectionSettings }> {
   if (isDemoMark(mark)) {
     throw new Error("Demo mode");
@@ -305,7 +309,7 @@ export async function claimCollection(
       throw new Error("Collection already exists with a different write token");
     }
     if (settings) {
-      const next = { ...rowToSettings(existing), ...settings };
+      const next = { ...rowToSettings(existing), ...settings, tokenPolicy: rowToSettings(existing).tokenPolicy };
       await updateCollectionSettings(db, mark, next);
       return { mark, created: false, settings: next };
     }
@@ -313,8 +317,10 @@ export async function claimCollection(
   }
 
   const writeTokenHash = await hashWriteToken(token);
+  const policy = normalizeTokenPolicy(tokenPolicy);
+  if (!isValidTokenForPolicy(token, policy)) throw new Error("Token does not meet the selected security rules");
   try {
-    await createCollection(db, mark, writeTokenHash, { settings });
+    await createCollection(db, mark, writeTokenHash, { settings, tokenPolicy: policy });
   } catch {
     const raced = await getCollection(db, mark);
     if (!raced) {
@@ -385,10 +391,13 @@ export async function regenerateToken(
   mark: string,
   currentToken: string,
   newToken: string,
+  tokenPolicy: TokenPolicy,
 ): Promise<{ mark: string; token: string }> {
   await requireWriteAccess(db, mark, currentToken, `regen:${mark}`);
+  const policy = normalizeTokenPolicy(tokenPolicy);
+  if (!isValidTokenForPolicy(newToken, policy)) throw new Error("Token does not meet the selected security rules");
   const newHash = await hashWriteToken(newToken);
-  await updateCollectionToken(db, mark, newHash);
+  await updateCollectionToken(db, mark, newHash, policy);
   return { mark, token: newToken };
 }
 

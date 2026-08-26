@@ -25,7 +25,15 @@ const tokenSchema = z
   .string()
   .min(TOKEN_MIN_LENGTH)
   .max(TOKEN_MAX_LENGTH)
-  .regex(/^[a-zA-Z0-9_-]+$/, "Invalid token format");
+  .regex(/^[a-zA-Z0-9_\-@]+$/, "Invalid token format");
+
+const tokenPolicySchema = z.object({
+  minLength: z.number().int().min(TOKEN_MIN_LENGTH).max(TOKEN_MAX_LENGTH),
+  requireUppercase: z.boolean(),
+  requireLowercase: z.boolean(),
+  requireDigit: z.boolean(),
+  allowAt: z.boolean(),
+}).refine((policy) => policy.requireUppercase || policy.requireLowercase || policy.requireDigit, "At least one character class is required");
 
 const urlSchema = z
   .string()
@@ -129,6 +137,7 @@ export const claimSchema = z.object({
   mark: markSchema,
   token: tokenSchema,
   settings: collectionSettingsSchema.optional(),
+  tokenPolicy: tokenPolicySchema.optional(),
 });
 
 /** Regenerate write token for an existing collection (requires current token) */
@@ -136,6 +145,7 @@ export const regenerateTokenSchema = z.object({
   mark: markSchema,
   currentToken: tokenSchema,
   newToken: tokenSchema,
+  tokenPolicy: tokenPolicySchema,
 });
 
 const importItemSchema = z.object({

@@ -5,6 +5,7 @@ import type {
   SortProfile,
 } from "./types";
 import { DEFAULT_COLLECTION_SETTINGS, defaultCategory } from "./types";
+import { DEFAULT_TOKEN_POLICY, type TokenPolicy } from "./types";
 import { MAX_BOOKMARKS_PER_MARK } from "./constants";
 
 export interface CollectionRow {
@@ -21,6 +22,7 @@ export interface CollectionRow {
   is_public: number;
   background_url: string;
   category_order: string;
+  token_policy: string;
 }
 
 export function rowToSettings(row: CollectionRow): CollectionSettings {
@@ -30,7 +32,24 @@ export function rowToSettings(row: CollectionRow): CollectionSettings {
     homeCategory: row.home_category || "",
     isPublic: row.is_public !== 0,
     backgroundUrl: row.background_url || "",
+    tokenPolicy: parseTokenPolicy(row.token_policy),
   };
+}
+
+function parseTokenPolicy(value: string | null | undefined): TokenPolicy {
+  try {
+    const parsed = JSON.parse(value || "null") as Partial<TokenPolicy> | null;
+    const minLength = Number(parsed?.minLength);
+    return {
+      minLength: Number.isInteger(minLength) && minLength >= 8 && minLength <= 128 ? minLength : DEFAULT_TOKEN_POLICY.minLength,
+      requireUppercase: parsed?.requireUppercase !== false,
+      requireLowercase: parsed?.requireLowercase !== false,
+      requireDigit: parsed?.requireDigit !== false,
+      allowAt: parsed?.allowAt !== false,
+    };
+  } catch {
+    return DEFAULT_TOKEN_POLICY;
+  }
 }
 
 export interface BookmarkRow {
@@ -72,6 +91,7 @@ export async function getCollection(
               COALESCE(is_public, 1) as is_public,
               COALESCE(background_url, '') as background_url
               ,COALESCE(category_order, '') as category_order
+              ,COALESCE(token_policy, '{"minLength":8,"requireUppercase":true,"requireLowercase":true,"requireDigit":true,"allowAt":true}') as token_policy
        FROM collections WHERE mark = ?`,
     )
     .bind(mark)
@@ -246,6 +266,7 @@ export async function createCollection(
     migratedFromKv?: boolean;
     tokenDelivered?: boolean;
     settings?: Partial<CollectionSettings>;
+    tokenPolicy?: TokenPolicy;
   },
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -266,8 +287,8 @@ export async function createCollection(
     .prepare(
       `INSERT INTO collections
         (mark, write_token_hash, created_at, updated_at, migrated_from_kv, token_delivered,
-         redirect_after_save, default_category, home_category, is_public, background_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         redirect_after_save, default_category, home_category, is_public, background_url, token_policy)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       mark,
@@ -281,6 +302,7 @@ export async function createCollection(
       settings.homeCategory || "",
       settings.isPublic ? 1 : 0,
       settings.backgroundUrl || "",
+      JSON.stringify(options?.tokenPolicy ?? settings.tokenPolicy ?? DEFAULT_TOKEN_POLICY),
     )
     .run();
 }
@@ -299,6 +321,7 @@ export async function updateCollectionSettings(
            home_category = ?,
            is_public = ?,
            background_url = ?,
+           token_policy = ?,
            updated_at = ?
        WHERE mark = ?`,
     )
@@ -308,6 +331,7 @@ export async function updateCollectionSettings(
       settings.homeCategory || "",
       settings.isPublic ? 1 : 0,
       settings.backgroundUrl || "",
+      JSON.stringify(settings.tokenPolicy ?? DEFAULT_TOKEN_POLICY),
       now,
       mark,
     )
@@ -372,15 +396,16 @@ export async function updateCollectionToken(
   db: D1Database,
   mark: string,
   writeTokenHash: string,
+  tokenPolicy?: TokenPolicy,
 ): Promise<void> {
   const now = new Date().toISOString();
   await db
     .prepare(
       `UPDATE collections
-       SET write_token_hash = ?, updated_at = ?, migrated_from_kv = 0, token_delivered = 1
+           SET write_token_hash = ?, updated_at = ?, migrated_from_kv = 0, token_delivered = 1, token_policy = ?
        WHERE mark = ?`,
     )
-    .bind(writeTokenHash, now, mark)
+    .bind(writeTokenHash, now, JSON.stringify(tokenPolicy ?? DEFAULT_TOKEN_POLICY), mark)
     .run();
 }
 

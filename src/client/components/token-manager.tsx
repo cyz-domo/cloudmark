@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { buildBookmarkletCode } from "@/shared/bookmarklet";
-import { generateWriteToken, isValidTokenFormat } from "@/shared/security";
+import { generateWriteToken, isValidTokenFormat, isValidTokenForPolicy } from "@/shared/security";
 import { claimCollectionApi, regenerateTokenApi } from "@/client/lib/api";
 import {
   clearStoredWriteToken,
@@ -38,6 +38,8 @@ import {
 import { useTranslations } from "@/client/i18n/context";
 import { BookmarkletLink } from "@/client/components/bookmarklet-link";
 import { cn } from "@/shared/utils";
+import { DEFAULT_TOKEN_POLICY, type TokenPolicy } from "@/shared/types";
+import { TokenPolicyFields } from "@/client/components/token-policy-fields";
 
 type Step =
   | "overview"
@@ -56,6 +58,8 @@ interface TokenManagerProps {
   /** Server-issued once (migration) */
   issuedWriteToken?: string;
   onTokenReady: (token: string | null) => void;
+  tokenPolicy?: TokenPolicy;
+  onTokenPolicyChange?: (policy: TokenPolicy) => void;
 }
 
 export function TokenManager({
@@ -66,6 +70,8 @@ export function TokenManager({
   writeToken,
   issuedWriteToken,
   onTokenReady,
+  tokenPolicy = DEFAULT_TOKEN_POLICY,
+  onTokenPolicyChange,
 }: TokenManagerProps) {
   const t = useTranslations("TokenManager");
   const [step, setStep] = useState<Step>("overview");
@@ -76,6 +82,7 @@ export function TokenManager({
   const [pendingToken, setPendingToken] = useState("");
   const [backupAck, setBackupAck] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [rotatePolicy, setRotatePolicy] = useState<TokenPolicy>(tokenPolicy);
 
   useEffect(() => {
     if (!open) return;
@@ -87,6 +94,7 @@ export function TokenManager({
     setPendingToken("");
     setBackupAck(isTokenBackupAcknowledged(mark));
     setBusy(false);
+    setRotatePolicy(tokenPolicy);
 
     if (issuedWriteToken) {
       setStoredWriteToken(mark, issuedWriteToken);
@@ -98,7 +106,7 @@ export function TokenManager({
         setBackupAck(false);
       }
     }
-  }, [open, mark, writeToken, issuedWriteToken, onTokenReady]);
+  }, [open, mark, writeToken, issuedWriteToken, onTokenReady, tokenPolicy]);
 
   const bookmarklet = useMemo(() => {
     if (!token) return "";
@@ -165,22 +173,29 @@ export function TokenManager({
       toast.error(t("needCurrentToken"));
       return;
     }
-    setPendingToken(generateWriteToken());
+    setRotatePolicy(tokenPolicy);
+    setPendingToken(generateWriteToken(tokenPolicy));
     setBackupAck(false);
     setStep("rotate-confirm");
   };
 
   const handleRotateApply = async () => {
     if (!token) return;
-    const next = pendingToken || generateWriteToken();
+    const next = pendingToken || generateWriteToken(rotatePolicy);
     if (!pendingToken) setPendingToken(next);
+    if (!isValidTokenForPolicy(next, rotatePolicy)) {
+      toast.error("令牌不符合当前安全规则");
+      return;
+    }
     setBusy(true);
     try {
       await regenerateTokenApi({
         mark,
         currentToken: token,
         newToken: next,
+        tokenPolicy: rotatePolicy,
       });
+      onTokenPolicyChange?.(rotatePolicy);
       setPendingToken(next);
       setStep("rotate-backup");
       setBackupAck(false);
@@ -440,6 +455,8 @@ export function TokenManager({
 
         {step === "rotate-confirm" && (
           <div className="space-y-3">
+            <TokenPolicyFields value={rotatePolicy} onChange={(next) => { setRotatePolicy(next); setPendingToken(generateWriteToken(next)); }} />
+            <Input value={pendingToken} onChange={(event) => setPendingToken(event.target.value)} className="h-9 font-mono text-xs" autoComplete="off" />
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
               <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
                 {t("rotateTitle")}
