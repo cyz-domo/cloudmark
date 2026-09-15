@@ -410,17 +410,51 @@ export function CollectionPage() {
   const manageSortProfile = async (action: "create" | "rename" | "delete") => {
     if (!writeToken) return;
     const current = sortProfiles.find((profile) => profile.id === activeSortProfileId);
+    if (action === "rename" && !current && sort === "manual") {
+      const input = window.prompt("为当前自定义排序设置方案名称：")?.trim();
+      if (!input) return;
+      try {
+        const profileCategory = category === ALL_CATEGORIES ? settings.homeCategory || "default" : category;
+        const newId = crypto.randomUUID();
+        const profile = await createSortProfileApi({ mark, token: writeToken, id: newId, category: profileCategory, name: input });
+        const currentBookmarks = bookmarks.filter((b) =>
+          category === ALL_CATEGORIES || parseCategories(b.category).includes(profileCategory)
+        );
+        const uuids = pendingOrders[profileCategory] ?? currentBookmarks.map((b) => b.uuid);
+        if (uuids.length > 0) {
+          await saveSortProfileOrdersApi({ mark, token: writeToken, id: newId, orders: [{ category: profileCategory, uuids }] });
+        }
+        const createdProfile: SortProfile = { ...profile, orders: [{ category: profileCategory, uuids }] };
+        setSortProfiles((previous) => [...previous, createdProfile]);
+        selectHomeSort(newId);
+        toast.success(`已保存为“${input}”排序方案`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "创建排序方案失败");
+      }
+      return;
+    }
     const input = window.prompt(action === "create" ? "新建排序方案名称" : action === "rename" ? "重命名排序方案" : `输入“${current?.name ?? ""}”确认删除`, action === "rename" ? current?.name ?? "" : "")?.trim();
     if (!input || (action === "delete" && input !== current?.name) || (action !== "create" && !current)) return;
     try {
       if (action === "create") {
         const profileCategory = category === ALL_CATEGORIES ? settings.homeCategory || "default" : category;
-        const profile = await createSortProfileApi({ mark, token: writeToken, id: crypto.randomUUID(), category: profileCategory, name: input });
-        setSortProfiles((previous) => [...previous, profile]);
-        selectHomeSort(profile.id);
+        const newId = crypto.randomUUID();
+        const profile = await createSortProfileApi({ mark, token: writeToken, id: newId, category: profileCategory, name: input });
+        const currentBookmarks = bookmarks.filter((b) =>
+          category === ALL_CATEGORIES || parseCategories(b.category).includes(profileCategory)
+        );
+        const uuids = pendingOrders[profileCategory] ?? currentBookmarks.map((b) => b.uuid);
+        if (uuids.length > 0) {
+          await saveSortProfileOrdersApi({ mark, token: writeToken, id: newId, orders: [{ category: profileCategory, uuids }] });
+        }
+        const createdProfile: SortProfile = { ...profile, orders: [{ category: profileCategory, uuids }] };
+        setSortProfiles((previous) => [...previous, createdProfile]);
+        selectHomeSort(newId);
+        toast.success(`已创建排序方案“${input}”`);
       } else if (action === "rename" && current) {
         await renameSortProfileApi({ mark, token: writeToken, id: current.id, name: input });
         setSortProfiles((previous) => previous.map((profile) => profile.id === current.id ? { ...profile, name: input } : profile));
+        toast.success(`排序方案已重命名为“${input}”`);
       } else if (current) {
         await deleteSortProfileApi({ mark, token: writeToken, id: current.id });
         setSortProfiles((previous) => previous.filter((profile) => profile.id !== current.id));
@@ -433,6 +467,7 @@ export function CollectionPage() {
         });
         setActiveSortProfileId(null);
         setSort("newest");
+        toast.success("排序方案已删除");
       }
     } catch (error) { toast.error(error instanceof Error ? error.message : "排序方案操作失败"); }
   };
@@ -1653,9 +1688,9 @@ export function CollectionPage() {
             </Button>
             {canWrite && (
               <div className="flex gap-1">
-                <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => void manageSortProfile("create")}>＋</Button>
-                <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!activeSortProfileId} onClick={() => void manageSortProfile("rename")}>✎</Button>
-                <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!activeSortProfileId} onClick={() => void manageSortProfile("delete")}>×</Button>
+                <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => void manageSortProfile("create")} title="新建排序方案">＋</Button>
+                <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!activeSortProfileId && sort !== "manual"} onClick={() => void manageSortProfile("rename")} title={activeSortProfileId ? "重命名当前排序方案" : "为当前自定义排序命名并保存为方案"}>✎</Button>
+                <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!activeSortProfileId} onClick={() => void manageSortProfile("delete")} title="删除当前排序方案">×</Button>
               </div>
             )}
             {isReorderable && IS_COARSE_POINTER && (
