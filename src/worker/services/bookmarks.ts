@@ -376,10 +376,13 @@ export async function reorderCollectionBookmarks(
   await requireWriteAccess(db, mark, token, `reorder:${mark}`);
   for (const order of orders) {
     const existing = await db
-      .prepare("SELECT uuid FROM bookmarks WHERE mark = ? AND category = ?")
-      .bind(mark, order.category)
-      .all<{ uuid: string }>();
-    const expected = new Set((existing.results ?? []).map((row) => row.uuid));
+      .prepare("SELECT uuid, category FROM bookmarks WHERE mark = ?")
+      .bind(mark)
+      .all<{ uuid: string; category: string }>();
+    const matching = (existing.results ?? []).filter((row) =>
+      parseCategories(row.category).includes(order.category) || row.category === order.category,
+    );
+    const expected = new Set(matching.map((row) => row.uuid));
     if (expected.size !== order.uuids.length || order.uuids.some((uuid) => !expected.has(uuid))) {
       throw new Error("排序列表与分类收藏不匹配");
     }

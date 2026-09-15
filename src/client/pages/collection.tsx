@@ -200,6 +200,7 @@ export function CollectionPage() {
     toggleSortColumn,
   } = filter;
   const manualSort = sort === "manual" && category !== ALL_CATEGORIES;
+  const isReorderable = canWrite && category !== ALL_CATEGORIES && !query.trim();
 
   const updatePointerTarget = useCallback((x: number, y: number) => {
     const list = listRef.current;
@@ -282,8 +283,11 @@ export function CollectionPage() {
   }, [stopAutoScroll]);
 
   const beginPointerDrag = useCallback((uuid: string, event: React.PointerEvent<HTMLDivElement>) => {
-    if (!manualSort || event.button !== 0) return;
+    if (!canWrite || category === ALL_CATEGORIES || query.trim() || event.button !== 0) return;
     if ((event.target as HTMLElement).closest("button, a, input, textarea")) return;
+    if (sort !== "manual") {
+      setSort("manual");
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
     event.preventDefault();
     pointerDragRef.current = {
@@ -296,7 +300,7 @@ export function CollectionPage() {
       y: event.clientY,
       targetUuid: null,
     };
-  }, [manualSort]);
+  }, [canWrite, category, query, sort, setSort]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -459,17 +463,17 @@ export function CollectionPage() {
   }, [settings.backgroundUrl]);
 
   const reorder = (targetUuid: string, sourceUuid = draggedUuid) => {
-    if (!sourceUuid || sourceUuid === targetUuid || !canWrite || !manualSort) return;
+    if (!sourceUuid || sourceUuid === targetUuid || !canWrite || category === ALL_CATEGORIES) return;
     const current = bookmarks.filter((bookmark) =>
-      category === ALL_CATEGORIES || bookmark.category === category,
+      parseCategories(bookmark.category).includes(category),
     );
     const dragged = current.find((bookmark) => bookmark.uuid === sourceUuid);
     const target = current.find((bookmark) => bookmark.uuid === targetUuid);
-    if (!dragged || !target || dragged.category !== target.category) return;
-    const categoryItems = current.filter((bookmark) => bookmark.category === dragged.category);
-    const next = [...categoryItems];
+    if (!dragged || !target) return;
+    const next = [...current];
     const from = next.findIndex((bookmark) => bookmark.uuid === sourceUuid);
     const to = next.findIndex((bookmark) => bookmark.uuid === targetUuid);
+    if (from === -1 || to === -1) return;
     next.splice(from, 1);
     next.splice(to, 0, dragged);
     const positions = new Map(next.map((bookmark, index) => [bookmark.uuid, index]));
@@ -483,7 +487,7 @@ export function CollectionPage() {
       });
       return { ...prev, bookmarks: reordered };
     });
-    setPendingOrders((previous) => ({ ...previous, [dragged.category]: next.map((bookmark) => bookmark.uuid) }));
+    setPendingOrders((previous) => ({ ...previous, [category]: next.map((bookmark) => bookmark.uuid) }));
     setDraggedUuid(null);
     setDragOverUuid(null);
   };
@@ -1655,12 +1659,15 @@ export function CollectionPage() {
                 <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!activeSortProfileId} onClick={() => void manageSortProfile("delete")}>×</Button>
               </div>
             )}
-            {manualSort && canWrite && IS_COARSE_POINTER && (
+            {isReorderable && IS_COARSE_POINTER && (
               <Button
                 size="sm"
                 variant={reorderMode ? "default" : "outline"}
                 className="h-8 rounded-full"
-                onClick={() => setReorderMode((value) => !value)}
+                onClick={() => {
+                  if (!reorderMode && sort !== "manual") setSort("manual");
+                  setReorderMode((value) => !value);
+                }}
                 title={ts("reorderModeHint")}
               >
                 <ListOrdered className="mr-1 h-3.5 w-3.5" />
@@ -1868,7 +1875,7 @@ export function CollectionPage() {
                   onDelete={() => {
                     openDeleteFor([bookmark]);
                   }}
-                  reorderable={manualSort && canWrite}
+                  reorderable={isReorderable}
                   onPointerDown={(event) => beginPointerDrag(bookmark.uuid, event)}
                   reorderMode={reorderMode}
                   dragging={draggedUuid === bookmark.uuid}

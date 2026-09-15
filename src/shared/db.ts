@@ -180,7 +180,7 @@ export async function updateSortProfileOrders(db: D1Database, mark: string, id: 
   const now = new Date().toISOString();
   const statements = [
     db.prepare("DELETE FROM sort_profile_items WHERE profile_id = ? AND mark = ?").bind(id, mark),
-    ...orders.flatMap((order) => order.uuids.map((uuid, index) => db.prepare("INSERT INTO sort_profile_items (profile_id, mark, category, uuid, sort_order) SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM sort_profiles WHERE id = ? AND mark = ?) AND EXISTS (SELECT 1 FROM bookmarks WHERE uuid = ? AND mark = ? AND category = ?)").bind(id, mark, order.category, uuid, index, id, mark, uuid, mark, order.category))),
+    ...orders.flatMap((order) => order.uuids.map((uuid, index) => db.prepare("INSERT INTO sort_profile_items (profile_id, mark, category, uuid, sort_order) SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM sort_profiles WHERE id = ? AND mark = ?) AND EXISTS (SELECT 1 FROM bookmarks WHERE uuid = ? AND mark = ?)").bind(id, mark, order.category, uuid, index, id, mark, uuid, mark))),
     db.prepare("UPDATE sort_profiles SET updated_at = ? WHERE id = ? AND mark = ?").bind(now, id, mark),
   ];
   await db.batch(statements);
@@ -371,12 +371,12 @@ export async function updateCollectionSettings(
 export async function reorderBookmarks(
   db: D1Database,
   mark: string,
-  category: string,
+  _category: string,
   uuids: string[],
 ): Promise<void> {
   const statements = uuids.map((uuid, index) =>
-    db.prepare("UPDATE bookmarks SET sort_order = ? WHERE uuid = ? AND mark = ? AND category = ?")
-      .bind(index, uuid, mark, category),
+    db.prepare("UPDATE bookmarks SET sort_order = ? WHERE uuid = ? AND mark = ?")
+      .bind(index, uuid, mark),
   );
   await db.batch(statements);
   await touchCollection(db, mark);

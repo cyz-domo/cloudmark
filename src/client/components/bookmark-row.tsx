@@ -82,7 +82,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         // Focused = keyboard/mouse cursor — distinct from selection
         focused && "is-focused",
         reorderable && (!IS_COARSE_POINTER || reorderMode) && "cursor-grab active:cursor-grabbing",
-        dragging && "z-10 scale-[1.01] bg-primary/10 opacity-55 shadow-lg ring-2 ring-primary/35",
+        dragging && "z-10 scale-[1.01] bg-primary/10 opacity-55 shadow-lg ring-2 ring-primary/35 pointer-events-none",
         dragOver && "translate-y-1 border-t-2 border-primary bg-primary/8 shadow-[0_-6px_18px_-12px_hsl(var(--primary))]",
       )}
       // Drag allowed when reorderable: desktop always, mobile only in reorder
