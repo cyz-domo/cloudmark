@@ -209,7 +209,7 @@ export async function renameCategory(db: D1Database, mark: string, from: string,
   ]);
 }
 
-export async function deleteCategory(db: D1Database, mark: string, category: string, paths: string[], order: string[]): Promise<number> {
+export async function deleteCategory(db: D1Database, mark: string, category: string, _paths: string[], order: string[]): Promise<number> {
   const bookmarks = await getBookmarksForMark(db, mark);
   const bookmarkOps: D1PreparedStatement[] = [];
   for (const b of bookmarks) {
