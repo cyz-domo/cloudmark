@@ -185,6 +185,8 @@ export function CollectionPage() {
   const suppressClickRef = useRef(false);
 
   const baseUrl = getBaseUrl();
+  /** Local token present (may still be wrong until first successful write). */
+  const canWrite = Boolean(writeToken) && !isDemoMark(mark);
   const bookmarks = data?.bookmarks ?? [];
   const filter = useBookmarkFilter(bookmarks, categoryOrder, { groupSorts: categorySorts, profiles: sortProfiles });
   const {
@@ -199,7 +201,6 @@ export function CollectionPage() {
     sortDir,
     toggleSortColumn,
   } = filter;
-  const manualSort = sort === "manual" && category !== ALL_CATEGORIES;
   const isReorderable = canWrite && category !== ALL_CATEGORIES && !query.trim();
 
   const updatePointerTarget = useCallback((x: number, y: number) => {
@@ -650,8 +651,6 @@ export function CollectionPage() {
     importExportOpen ||
     settingsOpen;
   const focused = filtered[focusedIndex] ?? null;
-  /** Local token present (may still be wrong until first successful write). */
-  const canWrite = Boolean(writeToken) && !isDemoMark(mark);
   /** Existing collection on another device — need paste, never silent-mint. */
   const needsWriteUnlock =
     collectionExists && !canWrite && !isDemoMark(mark) && !privateLocked;
