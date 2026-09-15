@@ -32,9 +32,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { updateSchema, type UpdateSchema } from "@/shared/schema";
 import type { BookmarkInstance } from "@/shared/types";
+import { parseCategories, serializeCategories } from "@/shared/utils";
 import { updateBookmarkApi } from "@/client/lib/api";
 import { useTranslations } from "@/client/i18n/context";
 import { IconPicker } from "@/client/components/icon-picker";
+import { MultiCategorySelect } from "@/client/components/multi-category-select";
 
 interface DialogEditProps {
   mark: string;
@@ -57,8 +59,6 @@ export function DialogEdit({
 }: DialogEditProps) {
   const t = useTranslations("Components.BookmarkDialog");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState("");
   const [favicon, setFavicon] = useState<string | undefined>(undefined);
 
   const form = useForm<UpdateSchema>({
@@ -88,8 +88,6 @@ export function DialogEdit({
         favicon: bookmark.favicon,
       });
       setFavicon(bookmark.favicon);
-      setIsCreatingNewCategory(false);
-      setNewCategory("");
     }
   }, [open, bookmark, mark, writeToken, form]);
 
@@ -107,7 +105,7 @@ export function DialogEdit({
         url: data.url,
         title: data.title,
         description: data.description,
-        category: isCreatingNewCategory ? newCategory : data.category,
+        category: data.category,
         // Always send favicon field so server applies custom / clear
         favicon: favicon ?? "",
       });
@@ -199,57 +197,14 @@ export function DialogEdit({
                     <Tag className="h-3 w-3" />
                     {t("category")}
                   </FormLabel>
-                  {!isCreatingNewCategory ? (
-                    <Select
-                      onValueChange={(v) => {
-                        if (v === "__new__") {
-                          setIsCreatingNewCategory(true);
-                          form.setValue("category", "");
-                        } else {
-                          field.onChange(v);
-                        }
-                      }}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="__new__">
-                          + {t("newCategory")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        value={newCategory}
-                        onChange={(e) => {
-                          setNewCategory(e.target.value);
-                          form.setValue("category", e.target.value);
-                        }}
-                        placeholder={t("newCategoryPlaceholder")}
-                        className="h-8"
-                        autoFocus
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => setIsCreatingNewCategory(false)}
-                      >
-                        {t("backToCategories")}
-                      </Button>
-                    </div>
-                  )}
+                  <FormControl>
+                    <MultiCategorySelect
+                      value={parseCategories(field.value)}
+                      onChange={(cats) => field.onChange(serializeCategories(cats))}
+                      availableCategories={categories}
+                      placeholder={t("categoryPlaceholder")}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

@@ -12,7 +12,8 @@ export const MARK_MAX_LENGTH = 64;
 export const TITLE_MAX_LENGTH = 200;
 export const DESCRIPTION_MAX_LENGTH = 2000;
 export const URL_MAX_LENGTH = 2048;
-export const CATEGORY_MAX_LENGTH = 50;
+export const CATEGORY_MAX_LENGTH = 255;
+export const SINGLE_CATEGORY_MAX_LENGTH = 50;
 export const TOKEN_MIN_LENGTH = 8;
 export const TOKEN_MAX_LENGTH = 128;
 /** Max length for favicon field (URL or data: URI) */

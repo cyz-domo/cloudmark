@@ -7,6 +7,11 @@ import type {
 import { DEFAULT_COLLECTION_SETTINGS, defaultCategory } from "./types";
 import { DEFAULT_TOKEN_POLICY, type TokenPolicy } from "./types";
 import { MAX_BOOKMARKS_PER_MARK } from "./constants";
+import {
+  parseCategories,
+  renameCategoryInMulti,
+  removeCategoryFromMulti,
+} from "./utils";
 
 export interface CollectionRow {
   mark: string;
@@ -184,8 +189,18 @@ export async function updateSortProfileOrders(db: D1Database, mark: string, id: 
 export async function renameCategory(db: D1Database, mark: string, from: string, to: string, paths: string[], order: string[], defaultCategory: string, homeCategory: string): Promise<void> {
   const now = new Date().toISOString();
   const renamed = paths.map((path) => ({ from: path, to: path === from ? to : `${to} / ${path.slice(from.length + 3)}` }));
+  const bookmarks = await getBookmarksForMark(db, mark);
+  const bookmarkUpdates = bookmarks
+    .filter((b) => {
+      const next = renameCategoryInMulti(b.category, from, to);
+      return next !== b.category;
+    })
+    .map((b) =>
+      db.prepare("UPDATE bookmarks SET category = ? WHERE mark = ? AND uuid = ?").bind(renameCategoryInMulti(b.category, from, to), mark, b.uuid),
+    );
+
   await db.batch([
-    ...renamed.map(({ from: path, to: next }) => db.prepare("UPDATE bookmarks SET category = ? WHERE mark = ? AND category = ?").bind(next, mark, path)),
+    ...bookmarkUpdates,
     db.prepare("UPDATE collections SET category_order = ?, default_category = ?, home_category = ?, updated_at = ? WHERE mark = ?")
       .bind(JSON.stringify(order), defaultCategory, homeCategory, now, mark),
     ...renamed.map(({ from: path, to: next }) => db.prepare("UPDATE sort_profile_items SET category = ? WHERE mark = ? AND category = ?").bind(next, mark, path)),
@@ -195,8 +210,23 @@ export async function renameCategory(db: D1Database, mark: string, from: string,
 }
 
 export async function deleteCategory(db: D1Database, mark: string, category: string, paths: string[], order: string[]): Promise<number> {
+  const bookmarks = await getBookmarksForMark(db, mark);
+  const bookmarkOps: D1PreparedStatement[] = [];
+  for (const b of bookmarks) {
+    const cats = parseCategories(b.category);
+    const isOnly = cats.length === 1 && (cats[0] === category || cats[0].startsWith(`${category} / `));
+    if (isOnly) {
+      bookmarkOps.push(db.prepare("DELETE FROM bookmarks WHERE mark = ? AND uuid = ?").bind(mark, b.uuid));
+    } else {
+      const remaining = removeCategoryFromMulti(b.category, category);
+      if (remaining !== b.category) {
+        bookmarkOps.push(db.prepare("UPDATE bookmarks SET category = ? WHERE mark = ? AND uuid = ?").bind(remaining, mark, b.uuid));
+      }
+    }
+  }
+
   const results = await db.batch([
-    ...paths.map((path) => db.prepare("DELETE FROM bookmarks WHERE mark = ? AND category = ?").bind(mark, path)),
+    ...bookmarkOps,
     db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? OR default_category LIKE ? THEN 'default' ELSE default_category END, home_category = CASE WHEN home_category = ? OR home_category LIKE ? THEN '' ELSE home_category END, updated_at = ? WHERE mark = ?")
       .bind(JSON.stringify(order), category, `${category} / %`, category, `${category} / %`, new Date().toISOString(), mark),
     db.prepare("DELETE FROM sort_profile_items WHERE mark = ? AND (category = ? OR category LIKE ?)")

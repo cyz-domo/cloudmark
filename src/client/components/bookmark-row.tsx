@@ -2,7 +2,7 @@ import { memo, type MouseEvent, type PointerEvent } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Check, ExternalLink, GripVertical, Pencil, Trash2 } from "lucide-react";
 import type { BookmarkInstance } from "@/shared/types";
-import { cn, getDomain } from "@/shared/utils";
+import { cn, getDomain, parseCategories } from "@/shared/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTranslations } from "@/client/i18n/context";
@@ -58,6 +58,7 @@ export const BookmarkRow = memo(function BookmarkRow({
   const date = formatDistanceToNow(new Date(bookmark.createdAt), {
     addSuffix: true,
   });
+  const cats = parseCategories(bookmark.category);
 
   return (
     <div
@@ -164,16 +165,29 @@ export const BookmarkRow = memo(function BookmarkRow({
         ) : null}
       </div>
 
-      {/* Category */}
-      <Badge
-        variant="outline"
-        className={cn(
-          "hidden max-w-full justify-self-start truncate px-1.5 py-0 text-2xs font-normal sm:inline-flex",
-          selected && "border-primary/25 bg-primary/5 text-foreground",
-        )}
+      {/* Category / Categories */}
+      <div
+        className="hidden max-w-full items-center gap-1 overflow-hidden justify-self-start sm:flex"
+        title={cats.join(", ")}
       >
-        {bookmark.category}
-      </Badge>
+        <Badge
+          variant="outline"
+          className={cn(
+            "max-w-[5.5rem] shrink-0 truncate px-1.5 py-0 text-2xs font-normal",
+            selected && "border-primary/25 bg-primary/5 text-foreground",
+          )}
+        >
+          {cats[0]}
+        </Badge>
+        {cats.length > 1 && (
+          <Badge
+            variant="secondary"
+            className="shrink-0 px-1 py-0 text-2xs font-normal text-muted-foreground"
+          >
+            +{cats.length - 1}
+          </Badge>
+        )}
+      </div>
 
       {/* Date */}
       <span

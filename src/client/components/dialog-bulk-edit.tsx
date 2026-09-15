@@ -21,10 +21,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import type { BookmarkInstance } from "@/shared/types";
-import { getDomain } from "@/shared/utils";
+import { getDomain, parseCategories, serializeCategories } from "@/shared/utils";
 import { CATEGORY_MAX_LENGTH, DESCRIPTION_MAX_LENGTH } from "@/shared/constants";
 import { updateBookmarkApi } from "@/client/lib/api";
 import { useTranslations } from "@/client/i18n/context";
+import { MultiCategorySelect } from "@/client/components/multi-category-select";
 
 type CategoryMode = "keep" | "set";
 type DescriptionMode = "keep" | "set" | "clear" | "append";
@@ -51,9 +52,9 @@ export function DialogBulkEdit({
   const t = useTranslations("Components.BulkEdit");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoryMode, setCategoryMode] = useState<CategoryMode>("keep");
-  const [category, setCategory] = useState(categories[0] || "default");
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([
+    categories[0] || "default",
+  ]);
   const [descriptionMode, setDescriptionMode] =
     useState<DescriptionMode>("keep");
   const [description, setDescription] = useState("");
@@ -64,23 +65,19 @@ export function DialogBulkEdit({
     setCategoryMode("keep");
     setDescriptionMode("keep");
     setDescription("");
-    setIsCreatingCategory(false);
-    setNewCategory("");
-    // Default category: shared category if all same, else first list item
-    const cats = new Set(bookmarks.map((b) => b.category));
-    if (cats.size === 1) {
-      setCategory([...cats][0]!);
+    // Default categories: if all selected bookmarks share the same category set, use that, else first available
+    const catStrings = new Set(bookmarks.map((b) => b.category));
+    if (catStrings.size === 1) {
+      setSelectedCategories(parseCategories([...catStrings][0]));
     } else {
-      setCategory(categories[0] || "default");
+      setSelectedCategories([categories[0] || "default"]);
     }
   }, [open, bookmarks, categories]);
 
   const count = bookmarks.length;
   if (count === 0) return null;
 
-  const resolvedCategory = isCreatingCategory
-    ? newCategory.trim()
-    : category.trim();
+  const resolvedCategory = serializeCategories(selectedCategories);
 
   const applyDescription = (current?: string): string | undefined => {
     switch (descriptionMode) {
@@ -213,65 +210,14 @@ export function DialogBulkEdit({
                 <SelectItem value="set">{t("categorySet")}</SelectItem>
               </SelectContent>
             </Select>
-            {categoryMode === "set" &&
-              (!isCreatingCategory ? (
-                <div className="flex gap-2">
-                  <Select
-                    value={category}
-                    onValueChange={(v) => {
-                      if (v === "__new__") {
-                        setIsCreatingCategory(true);
-                        setNewCategory("");
-                      } else {
-                        setCategory(v);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-8 flex-1 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="__new__">
-                        + {t("newCategory")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    onClick={() => setIsCreatingCategory(true)}
-                    title={t("newCategory")}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Input
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    placeholder={t("newCategoryPlaceholder")}
-                    className="h-8 text-sm"
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => setIsCreatingCategory(false)}
-                  >
-                    {t("backToCategories")}
-                  </Button>
-                </div>
-              ))}
+            {categoryMode === "set" && (
+              <MultiCategorySelect
+                value={selectedCategories}
+                onChange={setSelectedCategories}
+                availableCategories={categories}
+                placeholder={t("categoryPlaceholder")}
+              />
+            )}
           </div>
 
           {/* Description */}

@@ -52,6 +52,7 @@ import {
   isDemoMark,
   type TokenPolicy,
 } from "@/shared/types";
+import { parseCategories } from "@/shared/utils";
 
 export async function getFavicon(url: string, size: number = 64) {
   try {
@@ -129,7 +130,7 @@ export async function getCollectionPageData(
     const categorySorts = await getCategorySorts(db, mark);
 
     const bookmarksData = await getBookmarksData(db, mark);
-    const discovered = [...new Set((bookmarksData?.bookmarks ?? []).map((bookmark) => bookmark.category))];
+    const discovered = [...new Set((bookmarksData?.bookmarks ?? []).flatMap((bookmark) => parseCategories(bookmark.category)))];
     const saved = getCategoryOrder(existing);
     const categories = [...saved, ...discovered.filter((category) => !saved.includes(category))];
     // Collections with token_delivered=0: issue write token once on first open
@@ -189,7 +190,7 @@ export async function renameCollectionCategory(db: D1Database, mark: string, tok
   const collection = await requireCollectionWrite(db, mark, token);
   if (from === defaultCategory || to === defaultCategory) throw new Error("default 分类不能重命名");
   if (from === to) return;
-  const categories = new Set([...getCategoryOrder(collection), ...(await getBookmarksForMark(db, mark)).map((bookmark) => bookmark.category)]);
+  const categories = new Set([...getCategoryOrder(collection), ...(await getBookmarksForMark(db, mark)).flatMap((bookmark) => parseCategories(bookmark.category))]);
   const hasFrom = categories.has(from) || [...categories].some((category) => category.startsWith(`${from} / `));
   if (!hasFrom || [...categories].some((category) => category === to || category.startsWith(`${to} / `))) throw new Error("分类不存在或名称已存在");
   const paths = [...categories].filter((category) => category === from || category.startsWith(`${from} / `));
@@ -208,7 +209,7 @@ export async function renameCollectionCategory(db: D1Database, mark: string, tok
 export async function deleteCollectionCategory(db: D1Database, mark: string, token: string, category: string) {
   const collection = await requireCollectionWrite(db, mark, token);
   if (category === defaultCategory) throw new Error("default 分类不能删除");
-  const categories = new Set([...getCategoryOrder(collection), ...(await getBookmarksForMark(db, mark)).map((bookmark) => bookmark.category)]);
+  const categories = new Set([...getCategoryOrder(collection), ...(await getBookmarksForMark(db, mark)).flatMap((bookmark) => parseCategories(bookmark.category))]);
   if (!categories.has(category) && ![...categories].some((item) => item.startsWith(`${category} / `))) throw new Error("分类不存在");
   const paths = [...categories].filter((item) => item === category || item.startsWith(`${category} / `));
   return deleteCategory(db, mark, category, paths, getCategoryOrder(collection).filter((item) => !paths.includes(item)));

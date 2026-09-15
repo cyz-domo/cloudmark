@@ -39,7 +39,12 @@ import {
   DEFAULT_COLLECTION_SETTINGS,
   isDemoMark,
 } from "@/shared/types";
-import { getBaseUrl } from "@/shared/utils";
+import {
+  getBaseUrl,
+  parseCategories,
+  renameCategoryInMulti,
+  removeCategoryFromMulti,
+} from "@/shared/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -590,7 +595,7 @@ export function CollectionPage() {
         ...prev,
         bookmarks: prev.bookmarks.map((bookmark) => ({
           ...bookmark,
-          category: renameCategoryPath(bookmark.category, cat, name),
+          category: renameCategoryInMulti(bookmark.category, cat, name),
         })),
       } : prev);
       setSettings((previous) => ({
@@ -609,7 +614,17 @@ export function CollectionPage() {
     try {
       await deleteCategoryApi({ mark, token: writeToken!, category: cat });
       setCategoryOrder(categories.filter((item) => item !== cat));
-      setData((prev) => prev ? { ...prev, bookmarks: prev.bookmarks.filter((b) => b.category !== cat) } : prev);
+      setData((prev) => prev ? {
+        ...prev,
+        bookmarks: prev.bookmarks
+          .map((b) => {
+            const cats = parseCategories(b.category);
+            const isOnly = cats.length === 1 && (cats[0] === cat || cats[0].startsWith(`${cat} / `));
+            if (isOnly) return null;
+            return { ...b, category: removeCategoryFromMulti(b.category, cat) };
+          })
+          .filter((b): b is BookmarkInstance => b !== null),
+      } : prev);
       setSettings((previous) => ({
         ...previous,
         defaultCategory: isCategoryInTree(previous.defaultCategory, cat) ? "default" : previous.defaultCategory,
@@ -1496,7 +1511,7 @@ export function CollectionPage() {
 
       <div className="flex min-h-0 flex-1 gap-3">
         {/* Category sidebar */}
-        <aside className="hidden w-48 shrink-0 flex-col md:flex">
+        <aside className="hidden w-48 shrink-0 flex-col md:flex md:sticky md:top-20 md:self-start md:max-h-[calc(100dvh-5.5rem)] md:overflow-y-auto pr-0.5">
           <div className="mb-2 flex items-center gap-1.5 px-2.5 text-2xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <Folder className="h-3 w-3" />
             <span className="flex-1">{ts("categories")}</span>

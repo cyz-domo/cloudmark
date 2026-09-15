@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { BookmarkInstance, SortProfile } from "@/shared/types";
-import { getDomain } from "@/shared/utils";
+import { getDomain, parseCategories } from "@/shared/utils";
 
 /** Sortable columns in the bookmark table */
 export type SortColumn = "title" | "category" | "date" | "url" | "manual";
@@ -24,6 +24,7 @@ export function matchesQuery(bookmark: BookmarkInstance, query: string): boolean
   const q = normalize(query);
   if (!q) return true;
   const tokens = q.split(/\s+/).filter(Boolean);
+  const cats = parseCategories(bookmark.category);
   const hay = normalize(
     [
       bookmark.title,
@@ -31,6 +32,7 @@ export function matchesQuery(bookmark: BookmarkInstance, query: string): boolean
       getDomain(bookmark.url),
       bookmark.description ?? "",
       bookmark.category,
+      ...cats,
     ].join(" "),
   );
   return tokens.every((t) => hay.includes(t));
@@ -147,7 +149,10 @@ export function useBookmarkFilter(
   const categoryCounts = useMemo(() => {
     const map = new Map<string, number>();
     for (const b of bookmarks) {
-      map.set(b.category, (map.get(b.category) ?? 0) + 1);
+      const cats = parseCategories(b.category);
+      for (const cat of cats) {
+        map.set(cat, (map.get(cat) ?? 0) + 1);
+      }
     }
     return map;
   }, [bookmarks]);
@@ -166,7 +171,9 @@ export function useBookmarkFilter(
   const filtered = useMemo(() => {
     let list = bookmarks;
     if (category !== ALL_CATEGORIES) {
-      list = list.filter((b) => isCategoryInTree(b.category, category));
+      list = list.filter((b) =>
+        parseCategories(b.category).some((cat) => isCategoryInTree(cat, category)),
+      );
     }
     if (query.trim()) {
       list = list.filter((b) => matchesQuery(b, query));
@@ -179,9 +186,10 @@ export function useBookmarkFilter(
     ) {
       const byGroup = new Map<string, BookmarkInstance[]>();
       for (const b of list) {
-        const arr = byGroup.get(b.category) ?? [];
+        const primaryCat = parseCategories(b.category)[0] || "default";
+        const arr = byGroup.get(primaryCat) ?? [];
         arr.push(b);
-        byGroup.set(b.category, arr);
+        byGroup.set(primaryCat, arr);
       }
       const orderedKeys = [
         ...categoryOrder.filter((key) => byGroup.has(key)),
