@@ -16,7 +16,7 @@ export interface BookmarksData {
 
 /** Per-collection preferences */
 export interface CollectionSettings {
-  /** After bookmarklet save, jump to the collection page */
+  /** After a bookmarklet save: true jumps to this collection page, false returns to the page being bookmarked */
   redirectAfterSave: boolean;
   /** Category applied to bookmarklet saves */
   defaultCategory: string;

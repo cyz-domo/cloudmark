@@ -433,7 +433,7 @@
     "title": "集合设置",
     "description": "/{mark} 的偏好",
     "redirectAfterSave": "保存后打开 Cloudmark",
-    "redirectAfterSaveHint": "关闭后，书签按钮只显示“已保存”，不再跳转到本页。",
+    "redirectAfterSaveHint": "关闭后，书签按钮保存完成会先显示“已保存”，然后自动返回原网页。",
     "isPublic": "允许他人查看",
     "isPublicHint": "关闭后，只有持有写入令牌的人能打开此集合。",
     "defaultCategory": "默认分类",

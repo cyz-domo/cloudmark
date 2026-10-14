@@ -433,7 +433,7 @@
     "title": "Collection settings",
     "description": "Preferences for /{mark}",
     "redirectAfterSave": "Open Cloudmark after saving",
-    "redirectAfterSaveHint": "When off, bookmarklet shows a short “saved” page instead of jumping here.",
+    "redirectAfterSaveHint": "When off, the bookmarklet shows a short “saved” page and returns to the page you were on.",
     "isPublic": "Allow others to view",
     "isPublicHint": "When off, only people with the write token can open this collection.",
     "defaultCategory": "Default category",

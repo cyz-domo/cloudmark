@@ -15,8 +15,8 @@ import type { Env } from "../env";
 /**
  * Bookmarklet entry: GET /api/add?mark=&token=&title=&url=
  * Without a `category` it renders a group picker, which posts the choice back
- * to POST /api/add. Once the bookmark is written it redirects back to the
- * collection (or shows a lightweight "saved" page) per collection settings.
+ * to POST /api/add. Afterwards the collection's redirectAfterSave preference
+ * decides the destination: the collection page, or the page being bookmarked.
  */
 const bookmarklet = new Hono<{ Bindings: Env }>();
 
@@ -32,22 +32,78 @@ function redirectWithStatus(
   return c.redirect(url.toString(), 302);
 }
 
+/** Shared locale pick: stored preference, else the browser language. */
+const LOCALE_BOOTSTRAP = `
+      var stored = "";
+      try {
+        stored = localStorage.getItem("cloudmark:locale");
+      } catch (e) {}
+      var locale =
+        stored === "en" || stored === "zh"
+          ? stored
+          : ((navigator.language || "").toLowerCase().indexOf("zh") === 0 ? "zh" : "en");
+      var s = STRINGS[locale];
+      document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+      [].forEach.call(document.querySelectorAll("[data-i18n]"), function (el) {
+        var text = s[el.getAttribute("data-i18n")];
+        if (text) el.textContent = text;
+      });
+      [].forEach.call(document.querySelectorAll("[data-i18n-placeholder]"), function (el) {
+        var text = s[el.getAttribute("data-i18n-placeholder")];
+        if (text) el.placeholder = text;
+      });`;
+
+/** JSON literal that cannot terminate the enclosing <script>. */
+function jsonForScript(value: string): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+const KNOWN_ERROR_KEYS = [
+  "markRequired",
+  "urlRequired",
+  "tokenRequired",
+  "processingError",
+];
+
+function isHttpUrl(value?: string): value is string {
+  if (!value) return false;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function savedPage(
   c: Context<{ Bindings: Env }>,
-  opts: { mark: string; status: "success" | "error"; message: string },
+  opts: {
+    status: "saved" | "duplicate" | "error";
+    /** Saved groups on success, or the failure text. */
+    detail: string;
+    pageTitle: string;
+    sourceUrl?: string;
+  },
 ) {
-  const ok = opts.status === "success";
-  const title = ok ? "Saved" : "Could not save";
-  const detail = ok
-    ? "Bookmark saved. You can close this tab."
-    : opts.message.slice(0, 120);
-  const collectionPath = `/${encodeURIComponent(opts.mark)}`;
+  const ok = opts.status !== "error";
+  const headingKey =
+    opts.status === "saved" ? "saved" : opts.status === "duplicate" ? "duplicate" : "failed";
+  const errorKey = ok || !KNOWN_ERROR_KEYS.includes(opts.detail) ? "" : opts.detail;
+  const sourceUrl = isHttpUrl(opts.sourceUrl) ? opts.sourceUrl : "";
+  const back = sourceUrl
+    ? `<a href="${escapeHtml(sourceUrl)}" data-i18n="back">返回原网页</a>`
+    : "";
+  const serverTitle = ok ? "已保存 · Cloudmark" : "保存失败 · Cloudmark";
   const html = `<!doctype html>
-<html lang="en">
+<html lang="zh">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${title} · Cloudmark</title>
+  <title>${serverTitle}</title>
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -56,7 +112,7 @@ function savedPage(
       background: Canvas; color: CanvasText;
     }
     .card {
-      width: min(22rem, calc(100vw - 2rem));
+      width: min(24rem, calc(100vw - 2rem));
       padding: 1.5rem 1.25rem; border-radius: 1rem;
       border: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
       text-align: center;
@@ -68,23 +124,71 @@ function savedPage(
       color: ${ok ? "#16a34a" : "#dc2626"};
     }
     h1 { font-size: 1.1rem; margin: 0 0 .35rem; }
-    p { margin: 0; opacity: .72; font-size: .9rem; }
+    .page { font-size: .82rem; opacity: .8; margin: 0; word-break: break-all; }
+    .groups { font-size: .78rem; opacity: .6; margin: .35rem 0 0; word-break: break-all; }
+    .msg { font-size: .8rem; margin: .5rem 0 0; opacity: .85; word-break: break-word; }
     a { display: inline-block; margin-top: 1rem; color: inherit; opacity: .85; font-size: .85rem; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="dot" aria-hidden="true">${ok ? "OK" : "!"}</div>
-    <h1>${title}</h1>
-    <p>${detail.replace(/[<>&]/g, "")}</p>
-    <a href="${collectionPath}">Open collection</a>
+    <h1 data-i18n="${headingKey}">${
+      opts.status === "error" ? "保存失败" : opts.status === "duplicate" ? "已经在这些分组里" : "已保存"
+    }</h1>
+    <p class="page">${escapeHtml(opts.pageTitle.slice(0, 120))}</p>
+    ${
+      ok
+        ? `${opts.detail ? `<p class="groups">${escapeHtml(opts.detail)}</p>` : ""}<p class="msg" data-i18n="returning">正在返回原网页…</p>`
+        : `<p class="msg"${errorKey ? ` data-i18n-error="${errorKey}"` : ""}>${
+            errorKey ? "" : escapeHtml(opts.detail.slice(0, 200))
+          }</p>`
+    }
+    ${back}
   </div>
   <script>
-    try {
-      if (${ok ? "true" : "false"} && history.length > 1) {
-        setTimeout(function () { history.back(); }, 900);
+    (function () {
+      var STRINGS = {
+        zh: {
+          title: "已保存 · Cloudmark",
+          titleFailed: "保存失败 · Cloudmark",
+          saved: "已保存",
+          duplicate: "已经在这些分组里",
+          failed: "保存失败",
+          returning: "正在返回原网页…",
+          back: "返回原网页",
+          errors: {
+            markRequired: "缺少集合标识",
+            urlRequired: "网页地址无效",
+            tokenRequired: "缺少写入令牌",
+            processingError: "保存失败，请稍后重试",
+          },
+        },
+        en: {
+          title: "Saved · Cloudmark",
+          titleFailed: "Could not save · Cloudmark",
+          saved: "Saved",
+          duplicate: "Already in these groups",
+          failed: "Could not save",
+          returning: "Returning to the page…",
+          back: "Back to the page",
+          errors: {
+            markRequired: "Missing collection mark",
+            urlRequired: "Invalid page URL",
+            tokenRequired: "Missing write token",
+            processingError: "Could not save. Please try again later.",
+          },
+        },
+      };${LOCALE_BOOTSTRAP}
+      document.title = ${ok ? "s.title" : "s.titleFailed"};
+      var err = document.querySelector("[data-i18n-error]");
+      if (err) {
+        var text = (s.errors || {})[err.getAttribute("data-i18n-error")];
+        if (text) err.textContent = text;
       }
-    } catch (e) {}
+      ${ok ? `var src = ${jsonForScript(sourceUrl)};
+      if (src) setTimeout(function () { location.replace(src); }, 700);` : ""}
+    })();
   </script>
 </body>
 </html>`;
@@ -135,7 +239,6 @@ async function listCategories(
  */
 async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
   const { categories, defaultCategory } = await listCategories(c, input.mark);
-  const lastKey = JSON.stringify(`cloudmark:picker:${input.mark}`);
   const html = `<!doctype html>
 <html lang="zh">
 <head>
@@ -177,7 +280,8 @@ async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
     }
     .chip.hidden { display: none; }
     .new { display: flex; gap: .4rem; margin-bottom: 1rem; }
-    .row { display: flex; gap: .5rem; }
+    .new button { flex: 0 0 auto; padding-left: .85rem; padding-right: .85rem; }
+    .row { display: flex; flex-wrap: wrap; gap: .5rem; }
     button {
       flex: 1; padding: .55rem .6rem; font: inherit; font-size: .85rem;
       border-radius: .5rem; cursor: pointer;
@@ -204,6 +308,7 @@ async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
     <p class="empty" id="empty" data-i18n="empty" hidden>未找到匹配分组</p>
     <div class="new">
       <input type="text" id="new" placeholder="新建分组名" data-i18n-placeholder="newGroup" maxlength="50" autocomplete="off" />
+      <button type="button" id="add" data-i18n="add">添加</button>
     </div>
     <input type="hidden" name="category" id="out" />
     <input type="hidden" name="mark" value="${escapeHtml(input.mark)}" />
@@ -213,8 +318,9 @@ async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
     <div class="row">
       <button type="submit" id="save" class="primary" disabled data-i18n="save">保存</button>
       <button type="button" id="fallback" data-i18n="fallback">默认分组</button>
+      <button type="button" id="cancel" data-i18n="cancel">取消</button>
     </div>
-    <p class="hint" data-i18n="hint">可多选；新建分组按回车添加。</p>
+    <p class="hint" data-i18n="hint">可多选；新建分组点“添加”或按回车。</p>
   </form>
   <script>
     (function () {
@@ -224,9 +330,11 @@ async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
           heading: "保存到分组",
           search: "搜索分组…",
           newGroup: "新建分组名",
+          add: "添加",
           save: "保存",
           fallback: "默认分组",
-          hint: "可多选；新建分组按回车添加。",
+          cancel: "取消",
+          hint: "可多选；新建分组点“添加”或按回车。",
           empty: "未找到匹配分组",
         },
         en: {
@@ -234,49 +342,38 @@ async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
           heading: "Save to a group",
           search: "Search groups…",
           newGroup: "New group name",
+          add: "Add",
           save: "Save",
           fallback: "Default group",
-          hint: "Pick several if needed; press Enter to add a group.",
+          cancel: "Cancel",
+          hint: "Pick several if needed; click Add or press Enter to create a group.",
           empty: "No matching groups",
         },
-      };
-      var stored = "";
-      try {
-        stored = localStorage.getItem("cloudmark:locale");
-      } catch (e) {}
-      var locale =
-        stored === "en" || stored === "zh"
-          ? stored
-          : ((navigator.language || "").toLowerCase().indexOf("zh") === 0 ? "zh" : "en");
-      var s = STRINGS[locale];
-      document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+      };${LOCALE_BOOTSTRAP}
       document.title = s.title;
-      [].forEach.call(document.querySelectorAll("[data-i18n]"), function (el) {
-        var text = s[el.getAttribute("data-i18n")];
-        if (text) el.textContent = text;
-      });
-      [].forEach.call(document.querySelectorAll("[data-i18n-placeholder]"), function (el) {
-        var text = s[el.getAttribute("data-i18n-placeholder")];
-        if (text) el.placeholder = text;
-      });
 
-      var def = ${JSON.stringify(defaultCategory)};
+      var def = ${jsonForScript(defaultCategory)};
+      var src = ${jsonForScript(input.url)};
       var list = document.getElementById("list");
       var out = document.getElementById("out");
       var save = document.getElementById("save");
       var chips = [].slice.call(list.querySelectorAll(".chip"));
-      var storeKey = ${lastKey};
+      var storeKey = ${jsonForScript(`cloudmark:picker:${input.mark}`)};
       var remembered = [];
       try {
         remembered = JSON.parse(localStorage.getItem(storeKey) || "[]");
       } catch (e) {}
+
+      function pendingName() {
+        return document.getElementById("new").value.trim().slice(0, 50);
+      }
 
       function sync() {
         var picked = chips
           .filter(function (el) { return el.querySelector("input").checked; })
           .map(function (el) { return el.querySelector("input").value; });
         out.value = picked.join(", ");
-        save.disabled = picked.length === 0;
+        save.disabled = picked.length === 0 && !pendingName();
         try { localStorage.setItem(storeKey, JSON.stringify(picked)); } catch (e) {}
       }
 
@@ -323,9 +420,10 @@ async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
 
       search.addEventListener("input", applyFilter);
 
+      var newBox = document.getElementById("new");
+
       function addNew() {
-        var box = document.getElementById("new");
-        var name = box.value.trim().slice(0, 50);
+        var name = newBox.value.trim().slice(0, 50);
         if (!name) return;
         var lower = name.toLowerCase();
         var hit = chips.filter(function (el) { return el.dataset.name === lower; })[0];
@@ -357,17 +455,25 @@ async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
           input.checked = true;
           hit.classList.add("on");
         }
-        box.value = "";
+        newBox.value = "";
         search.value = "";
         applyFilter();
         sync();
       }
 
-      document.getElementById("new").addEventListener("keydown", function (ev) {
+      document.getElementById("add").addEventListener("click", addNew);
+      newBox.addEventListener("input", sync);
+      newBox.addEventListener("keydown", function (ev) {
         if (ev.key === "Enter") {
           ev.preventDefault();
           addNew();
         }
+      });
+
+      // Runs before the form is serialized, so a name typed without clicking
+      // Add is still saved.
+      document.getElementById("f").addEventListener("submit", function () {
+        addNew();
       });
 
       document.getElementById("fallback").addEventListener("click", function () {
@@ -381,6 +487,14 @@ async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
         document.getElementById("f").submit();
       });
 
+      document.getElementById("cancel").addEventListener("click", function () {
+        if (history.length > 1) {
+          history.back();
+        } else {
+          location.replace(src);
+        }
+      });
+
       sync();
     })();
   </script>
@@ -389,17 +503,41 @@ async function pickerPage(c: Context<{ Bindings: Env }>, input: SaveInput) {
   return c.html(html);
 }
 
-async function finish(
-  c: Context<{ Bindings: Env }>,
-  mark: string,
-  status: "success" | "error",
-  message: string,
-  redirectAfterSave: boolean,
-) {
-  if (redirectAfterSave) {
-    return redirectWithStatus(c, mark, status, message);
+/** One collection preference drives the whole response: where to go after a save. */
+async function prefersRedirect(c: Context<{ Bindings: Env }>, mark: string): Promise<boolean> {
+  if (!mark) return DEFAULT_COLLECTION_SETTINGS.redirectAfterSave;
+  const row = await getCollection(c.env.DB, mark);
+  return row
+    ? rowToSettings(row).redirectAfterSave
+    : DEFAULT_COLLECTION_SETTINGS.redirectAfterSave;
+}
+
+interface Outcome {
+  mark: string;
+  title: string;
+  url?: string;
+  status: "saved" | "duplicate" | "error";
+  /** Groups shown on the confirmation page. */
+  detail: string;
+  /** Toast key (or raw text) used when jumping to the collection page. */
+  toast: string;
+}
+
+async function respond(c: Context<{ Bindings: Env }>, outcome: Outcome) {
+  if (await prefersRedirect(c, outcome.mark)) {
+    return redirectWithStatus(
+      c,
+      outcome.mark,
+      outcome.status === "error" ? "error" : "success",
+      outcome.toast,
+    );
   }
-  return savedPage(c, { mark, status, message });
+  return savedPage(c, {
+    status: outcome.status,
+    detail: outcome.detail,
+    pageTitle: outcome.title,
+    sourceUrl: outcome.url,
+  });
 }
 
 /** Collected input for one bookmarklet save. */
@@ -413,56 +551,37 @@ interface SaveInput {
 }
 
 async function saveBookmark(c: Context<{ Bindings: Env }>, input: SaveInput) {
-  let redirectAfterSave = DEFAULT_COLLECTION_SETTINGS.redirectAfterSave;
+  const base = { mark: input.mark, title: input.title, url: input.url };
 
   try {
-    // Prefer existing settings when the collection already exists
-    const existing = await getCollection(c.env.DB, input.mark);
-    if (existing) {
-      redirectAfterSave = rowToSettings(existing).redirectAfterSave;
-    }
-
-    await createBookmark(c.env.DB, {
-      mark: input.mark,
+    const bookmark = await createBookmark(c.env.DB, {
+      ...base,
       token: input.token,
-      url: input.url,
       title: input.title.slice(0, 200),
       category: input.category,
     });
 
-    // Re-read settings after possible first-time create
-    const after = await getCollection(c.env.DB, input.mark);
-    if (after) {
-      redirectAfterSave = rowToSettings(after).redirectAfterSave;
-    }
-
-    return finish(c, input.mark, "success", "bookmarkAdded", redirectAfterSave);
+    return respond(c, {
+      ...base,
+      status: "saved",
+      detail: bookmark.category,
+      toast: "bookmarkAdded",
+    });
   } catch (error) {
     console.error("Error processing bookmark:", error);
-    const safeMark = input.mark || defaultMark;
-    const message =
-      error instanceof Error ? error.message : "processingError";
+    const message = error instanceof Error ? error.message : "processingError";
 
     if (isDuplicateError(message)) {
-      try {
-        const col = await getCollection(c.env.DB, safeMark);
-        if (col) redirectAfterSave = rowToSettings(col).redirectAfterSave;
-      } catch {
-        /* ignore */
-      }
-      return finish(c, safeMark, "success", "bookmarkExists", redirectAfterSave);
+      return respond(c, {
+        ...base,
+        status: "duplicate",
+        detail: input.category ?? "",
+        toast: "bookmarkExists",
+      });
     }
 
-    const known = [
-      "markRequired",
-      "urlRequired",
-      "tokenRequired",
-      "processingError",
-      "bookmarkAdded",
-      "bookmarkExists",
-    ];
-    const msg = known.includes(message) ? message : message.slice(0, 200);
-    return finish(c, safeMark, "error", msg, redirectAfterSave);
+    const detail = KNOWN_ERROR_KEYS.includes(message) ? message : message.slice(0, 200);
+    return respond(c, { ...base, status: "error", detail, toast: detail });
   }
 }
 
@@ -520,11 +639,17 @@ bookmarklet.get("/add", async (c) => {
     category: c.req.query("category"),
   });
   if ("error" in input) {
-    const safeMark = c.req.query("mark") || defaultMark;
     if (input.error === "markRequired") {
       return redirectWithStatus(c, defaultMark, "error", input.error);
     }
-    return finish(c, safeMark, "error", input.error, true);
+    return respond(c, {
+      mark: c.req.query("mark") || defaultMark,
+      title: c.req.query("title") || "Untitled",
+      url: c.req.query("url"),
+      status: "error",
+      detail: input.error,
+      toast: input.error,
+    });
   }
 
   // No category chosen yet → ask which group to file this under
@@ -549,7 +674,14 @@ bookmarklet.post("/add", async (c) => {
     category: get("category"),
   });
   if ("error" in input) {
-    return finish(c, get("mark") || defaultMark, "error", input.error, true);
+    return respond(c, {
+      mark: get("mark") || defaultMark,
+      title: get("title") || "Untitled",
+      url: get("url"),
+      status: "error",
+      detail: input.error,
+      toast: input.error,
+    });
   }
   return saveBookmark(c, input);
 });
