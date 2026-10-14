@@ -15,7 +15,7 @@ Try it online: [https://cloudmark.site/](https://cloudmark.site/)
 ## Key Features
 
 - 🔑 **No Registration**: Access your collection with a unique `mark`; writes require a write token
-- 🔖 **One-Click Save**: Bookmarklet embeds mark + write token
+- 🔖 **Quick Save**: Bookmarklet embeds mark + write token, then picks a category before saving
 - 🏷️ **Category Management**: Custom categories for organization
 - ⌨️ **Keyboard-first**: `/` search, `j/k` navigate, `n/e/d` CRUD, `?` help
 - 📋 **High density**: Compact list with instant filter / sort
@@ -41,7 +41,7 @@ Try it online: [https://cloudmark.site/](https://cloudmark.site/)
 1. Visit [https://cloudmark.site/doc](https://cloudmark.site/doc)
 2. Generate a `mark` and write token (or customize the mark)
 3. Drag the bookmarklet to your browser bookmarks bar
-4. Click the bookmarklet while browsing to save pages
+4. Click the bookmarklet while browsing, pick a category, and save
 5. Open `https://cloudmark.site/your-mark` to manage bookmarks
 
 ## Local Development

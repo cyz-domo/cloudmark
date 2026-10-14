@@ -1,5 +1,6 @@
 /**
  * Build a drag-to-bookmarks-bar bookmarklet that saves the current page.
+ * It sends no category, so the worker asks which group to file it under first.
  *
  * Encoding notes:
  * - The script body is fully percent-encoded so browsers cannot turn bare `+`

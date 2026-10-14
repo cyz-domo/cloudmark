@@ -12,8 +12,8 @@
     },
     "features": {
       "save": {
-        "title": "One-click save",
-        "desc": "Drag a bookmarklet to your browser bar, then save the current page in one click."
+        "title": "Save while browsing",
+        "desc": "Drag a bookmarklet to your browser bar, then choose a category and save the current page."
       },
       "categorize": {
         "title": "Categories",
@@ -81,7 +81,7 @@
         "itemOpen": "② Open collection",
         "saveButton": "Save to {mark}",
         "openCollection": "Open collection",
-        "dragSaveHint": "Drag to the bar, then click on any page to save",
+        "dragSaveHint": "Drag to the bar, then click on any page and pick a group",
         "dragOpenHint": "Drag to the bar to reopen your collection anytime",
         "dragTip": "Drag both buttons to your bookmarks bar",
         "open": "Open /{mark}",
@@ -107,7 +107,7 @@
     "noBookmarks": "No bookmarks yet",
     "addFirstBookmark": "Add your first bookmark",
     "loading": "Loading bookmarks...",
-    "bookmarkletTip": "Drag this button to your bookmarks bar to save pages with one click",
+    "bookmarkletTip": "Drag this button to your bookmarks bar; click it to pick a group and save the page",
     "bookmarkletNeedsToken": "Set write token first",
     "saveButton": "Save to {mark}",
     "dragTip": "Drag to bookmarks bar",
@@ -437,7 +437,7 @@
     "isPublic": "Allow others to view",
     "isPublicHint": "When off, only people with the write token can open this collection.",
     "defaultCategory": "Default category",
-    "defaultCategoryHint": "Used when saving with the bookmarklet.",
+    "defaultCategoryHint": "Preselected when the picker opens, and used by its “default group” button.",
     "customCategory": "Enter a new category",
     "homeCategory": "Home category",
     "allCategories": "All categories",

@@ -15,7 +15,7 @@ Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创�
 ## 主要功能
 
 - 🔑 **无需注册**：通过 `mark` 访问集合；写入需要 write token
-- 🔖 **一键收藏**：Bookmarklet 内嵌 mark + write token
+- 🔖 **快速收藏**：Bookmarklet 内嵌 mark + write token，保存前可选分组
 - 🏷️ **分类管理**：自定义分类整理书签
 - ⌨️ **键盘优先**：`/` 搜索、`j/k` 导航、`n/e/d` 增删改、`?` 帮助
 - 📋 **高信息密度**：紧凑列表 + 即时筛选 / 排序
@@ -40,7 +40,7 @@ Cloudmark 是一款通用的云端书签管理工具，无需注册登录。创�
 1. 访问 [https://cloudmark.site/doc](https://cloudmark.site/doc)
 2. 生成 `mark` 与 write token
 3. 将 bookmarklet 拖到浏览器书签栏
-4. 浏览时点击 bookmarklet 保存页面
+4. 浏览时点击 bookmarklet，选择分组后保存
 5. 打开 `https://cloudmark.site/你的-mark` 管理书签
 
 ## 本地开发

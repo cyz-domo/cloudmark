@@ -12,8 +12,8 @@
     },
     "features": {
       "save": {
-        "title": "一键保存",
-        "desc": "把书签按钮拖到浏览器书签栏，浏览时点一下即可收藏当前页面。"
+        "title": "浏览中随手收藏",
+        "desc": "把书签按钮拖到浏览器书签栏，浏览时点一下选好分组即可收藏当前页面。"
       },
       "categorize": {
         "title": "分类整理",
@@ -81,7 +81,7 @@
         "itemOpen": "② 打开收藏",
         "saveButton": "保存到 {mark}",
         "openCollection": "打开书签收藏",
-        "dragSaveHint": "拖到书签栏，浏览网页时点击即可保存",
+        "dragSaveHint": "拖到书签栏，浏览网页时点击并选择分组即可保存",
         "dragOpenHint": "拖到书签栏，随时打开你的集合",
         "dragTip": "将两个按钮都拖到书签栏",
         "open": "打开 /{mark}",
@@ -107,7 +107,7 @@
     "noBookmarks": "暂无书签",
     "addFirstBookmark": "添加第一个书签",
     "loading": "正在加载书签...",
-    "bookmarkletTip": "拖拽此按钮到书签栏，一键保存网页到此收藏",
+    "bookmarkletTip": "拖拽此按钮到书签栏，点击后可选择分组再保存网页",
     "bookmarkletNeedsToken": "请先配置写入令牌",
     "saveButton": "保存到 {mark}",
     "dragTip": "拖拽到书签栏",
@@ -437,7 +437,7 @@
     "isPublic": "允许他人查看",
     "isPublicHint": "关闭后，只有持有写入令牌的人能打开此集合。",
     "defaultCategory": "默认分类",
-    "defaultCategoryHint": "使用书签按钮保存时采用此分类。",
+    "defaultCategoryHint": "选择页打开时默认选中此分类，“默认分组”按钮也会直接保存到这儿。",
     "customCategory": "输入新分类",
     "homeCategory": "首页展示组别",
     "allCategories": "全部分组",
