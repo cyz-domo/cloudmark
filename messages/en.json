@@ -146,7 +146,10 @@
     "backupAfterClaim": "Collection claimed — back up your write token now",
     "invalidTokenWrite": "Invalid write token. Paste the correct one to continue.",
     "tokenManager": "Token",
-    "importExport": "Import/Export"
+    "importExport": "Import/Export",
+    "offlineTitle": "Offline mode",
+    "offlineDescription": "Cloud unreachable — showing the local cache from {time}. Changes made now won't be saved.",
+    "offlineRetry": "Retry"
   },
   "TokenUnlock": {
     "placeholder": "tok_…",
@@ -406,6 +409,9 @@
     "exportHint": "{count} bookmarks in this collection",
     "exportHtml": "Export HTML (browsers)",
     "exportJson": "Export JSON (Cloudmark)",
+    "exportSnapshot": "Export local snapshot (offline page)",
+    "exportSnapshotNote": "A single HTML file with all bookmarks embedded — double-click to open offline, or set it as your browser homepage. For the new-tab page, point a New Tab Redirect-style extension at the file. Data is a static copy; re-export after changes.",
+    "exportSnapshotDone": "Exported {count} bookmarks as a local snapshot",
     "exportHtmlNote": "HTML uses the Netscape format — Chrome / Firefox / Safari / Edge can import it via their bookmark manager.",
     "exportHtmlDone": "Exported {count} bookmarks as HTML",
     "exportJsonDone": "Exported {count} bookmarks as JSON",

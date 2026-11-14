@@ -31,3 +31,4 @@ out
 .codegraph/
 pnpm-workspace.yaml
 test_plugin.go
+wrangler.demo.jsonc

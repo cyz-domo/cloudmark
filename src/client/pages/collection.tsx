@@ -64,6 +64,10 @@ import {
   setStoredWriteToken,
 } from "@/client/lib/token-store";
 import {
+  loadCollectionCache,
+  saveCollectionCache,
+} from "@/client/lib/collection-cache";
+import {
   ALL_CATEGORIES,
   isCategoryInTree,
   useBookmarkFilter,
@@ -82,6 +86,7 @@ import { DialogDelete } from "@/client/components/dialog-delete";
 import { DialogBulkEdit } from "@/client/components/dialog-bulk-edit";
 import { DemoBanner } from "@/client/components/demo-banner";
 import { MigrationBanner } from "@/client/components/migration-banner";
+import { OfflineBanner } from "@/client/components/offline-banner";
 import { BookmarkletButton } from "@/client/components/bookmarklet-button";
 import {
   ShortcutHelp,
@@ -153,6 +158,7 @@ export function CollectionPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeSortProfileId, setActiveSortProfileId] = useState<string | null>(null);
   const [privateLocked, setPrivateLocked] = useState(false);
+  const [offlineCachedAt, setOfflineCachedAt] = useState<string | null>(null);
   const [draggedUuid, setDraggedUuid] = useState<string | null>(null);
   const [dragOverUuid, setDragOverUuid] = useState<string | null>(null);
   const [pendingOrders, setPendingOrders] = useState<Record<string, string[]>>({});
@@ -700,6 +706,7 @@ export function CollectionPage() {
     setLoading(true);
     setPrivateLocked(false);
     setCollectionExists(false);
+    setOfflineCachedAt(null);
     appliedSortCategoryRef.current = null;
 
     const stored = isDemoMark(mark) ? null : getStoredWriteToken(mark);
@@ -770,7 +777,29 @@ export function CollectionPage() {
           setWriteToken(stored || ensureLocalWriteToken(mark));
         }
       } catch (e) {
-        if (!cancelled) {
+        if (cancelled) return;
+        const cached = loadCollectionCache(mark);
+        if (cached) {
+          const page = cached.page;
+          const nextSettings = page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS };
+          const nextProfiles = page.sortProfiles ?? [];
+          const nextSorts = page.categorySorts ?? {};
+          setCollectionExists(true);
+          setSettings(nextSettings);
+          setSortProfiles(nextProfiles);
+          setCategorySorts(nextSorts);
+          const nextCategory = nextSettings.homeCategory || ALL_CATEGORIES;
+          const isAll = nextCategory === ALL_CATEGORIES;
+          setCategory(nextCategory);
+          const sticky = isAll ? nextSorts[ALL_CATEGORIES] : (nextSorts[nextCategory] ?? nextSorts[ALL_CATEGORIES]);
+          const profile = applySelection(sticky || "", nextProfiles);
+          setData(page.bookmarksData
+            ? { ...page.bookmarksData, bookmarks: !isAll && profile ? applySortProfile(page.bookmarksData.bookmarks, profile) : page.bookmarksData.bookmarks }
+            : { mark, bookmarks: [] });
+          setCategoryOrder(page.categories ?? []);
+          setOfflineCachedAt(cached.savedAt);
+          setPrivateLocked(false);
+        } else {
           toast.error(e instanceof Error ? e.message : "Failed to load");
           setData({ mark, bookmarks: [] });
           setPrivateLocked(false);
@@ -784,6 +813,23 @@ export function CollectionPage() {
       cancelled = true;
     };
   }, [mark]);
+
+  // Mirror the latest state to localStorage for the offline fallback.
+  // Skipped while offline so unsaved local edits never overwrite the last good copy.
+  useEffect(() => {
+    if (loading || !collectionExists || privateLocked || offlineCachedAt || !data) return;
+    const timer = setTimeout(() => {
+      saveCollectionCache(mark, {
+        bookmarksData: data,
+        exists: true,
+        settings,
+        categories: categoryOrder,
+        sortProfiles,
+        categorySorts,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [mark, data, settings, categoryOrder, sortProfiles, categorySorts, loading, collectionExists, privateLocked, offlineCachedAt]);
 
   // URL toast from bookmarklet redirect
   useEffect(() => {
@@ -986,6 +1032,7 @@ export function CollectionPage() {
 
   const applyCollectionPage = useCallback(
     (page: Awaited<ReturnType<typeof fetchCollection>>, token: string | null, preferredCategory?: string) => {
+      setOfflineCachedAt(null);
       setCollectionExists(Boolean(page.exists));
       setPrivateLocked(Boolean(page.privateLocked));
       const nextSettings = page.settings ?? { ...DEFAULT_COLLECTION_SETTINGS };
@@ -1439,6 +1486,14 @@ export function CollectionPage() {
           issuedWriteToken={issuedWriteToken}
           migratedFromKv={migratedFromKv}
           onTokenReady={onTokenReady}
+        />
+      )}
+
+      {offlineCachedAt && (
+        <OfflineBanner
+          cachedAt={offlineCachedAt}
+          retrying={refreshing}
+          onRetry={() => void refreshCollection()}
         />
       )}
 

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
+  Camera,
   Download,
   FileUp,
   Loader2,
@@ -24,7 +25,8 @@ import {
 } from "@/shared/netscape-bookmarks";
 import { downloadJson, downloadTextFile } from "@/client/lib/download";
 import { importBookmarksApi } from "@/client/lib/api";
-import { useTranslations } from "@/client/i18n/context";
+import { useI18n, useTranslations } from "@/client/i18n/context";
+import { exportSnapshotHtml } from "@/shared/snapshot";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CATEGORY_MAX_LENGTH } from "@/shared/constants";
 import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
@@ -131,6 +133,7 @@ export function ImportExportDialog({
   categories,
 }: ImportExportProps) {
   const t = useTranslations("ImportExport");
+  const { locale } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<"export" | "import">("export");
   const [preview, setPreview] = useState<ParsedBookmark[] | null>(null);
@@ -177,6 +180,16 @@ export function ImportExportDialog({
     const data = exportCloudmarkJson(mark, bookmarks);
     downloadJson(`cloudmark-${mark}-bookmarks.json`, data);
     toast.success(t("exportJsonDone", { count: bookmarks.length }));
+  };
+
+  const handleExportSnapshot = () => {
+    const html = exportSnapshotHtml({ mark, bookmarks, categories, locale });
+    downloadTextFile(
+      `cloudmark-${mark}-snapshot.html`,
+      html,
+      "text/html;charset=utf-8",
+    );
+    toast.success(t("exportSnapshotDone", { count: bookmarks.length }));
   };
 
   const onFile = async (file: File) => {
@@ -342,6 +355,17 @@ export function ImportExportDialog({
                 {t("exportJson")}
               </Button>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 w-full justify-start"
+              disabled={bookmarks.length === 0}
+              onClick={handleExportSnapshot}
+            >
+              <Camera className="mr-1.5 h-3.5 w-3.5" />
+              {t("exportSnapshot")}
+            </Button>
+            <p className="text-2xs text-muted-foreground">{t("exportSnapshotNote")}</p>
             <p className="text-2xs text-muted-foreground">{t("exportHtmlNote")}</p>
           </div>
         )}
