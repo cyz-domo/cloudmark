@@ -27,6 +27,7 @@ import { downloadJson, downloadTextFile } from "@/client/lib/download";
 import { importBookmarksApi } from "@/client/lib/api";
 import { useI18n, useTranslations } from "@/client/i18n/context";
 import { exportSnapshotHtml } from "@/shared/snapshot";
+import { isGoogleGlobe } from "@/shared/favicon";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CATEGORY_MAX_LENGTH } from "@/shared/constants";
 import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
@@ -39,6 +40,28 @@ interface ImportExportProps {
   onOpenChange: (open: boolean) => void;
   onImported: (bookmarks: BookmarkInstance[]) => void;
   categories: string[];
+  backgroundUrl?: string;
+}
+
+/** Inline a remote image as a data URL so the snapshot stays offline-safe. */
+async function fetchAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (!blob.type.startsWith("image/") || blob.size > 8 * 1024 * 1024) {
+      return null;
+    }
+    if (await isGoogleGlobe(await blob.arrayBuffer())) return null;
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
 const CHUNK = 200;
@@ -131,6 +154,7 @@ export function ImportExportDialog({
   onOpenChange,
   onImported,
   categories,
+  backgroundUrl,
 }: ImportExportProps) {
   const t = useTranslations("ImportExport");
   const { locale } = useI18n();
@@ -139,6 +163,7 @@ export function ImportExportDialog({
   const [preview, setPreview] = useState<ParsedBookmark[] | null>(null);
   const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [targetCategory, setTargetCategory] = useState("parsed");
   const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(
@@ -182,14 +207,47 @@ export function ImportExportDialog({
     toast.success(t("exportJsonDone", { count: bookmarks.length }));
   };
 
-  const handleExportSnapshot = () => {
-    const html = exportSnapshotHtml({ mark, bookmarks, categories, locale });
-    downloadTextFile(
-      `cloudmark-${mark}-snapshot.html`,
-      html,
-      "text/html;charset=utf-8",
-    );
-    toast.success(t("exportSnapshotDone", { count: bookmarks.length }));
+  const handleExportSnapshot = async () => {
+    setSnapshotBusy(true);
+    try {
+      let background: string | undefined;
+      if (backgroundUrl) {
+        background = (await fetchAsDataUrl(backgroundUrl)) ?? backgroundUrl;
+      }
+      const offlineBookmarks = await Promise.all(
+        bookmarks.map(async (b) => {
+          const f = b.favicon;
+          if (!f || f.startsWith("emoji:") || f.startsWith("data:")) return b;
+          if (!/^https?:\/\//i.test(f)) return b;
+          let data = await fetchAsDataUrl(f);
+          if (!data && /google\.com\/s2\/favicons/i.test(f)) {
+            try {
+              data = await fetchAsDataUrl(new URL(b.url).origin + "/favicon.ico");
+            } catch {
+              data = null;
+            }
+            if (!data) return { ...b, favicon: "" };
+          }
+          return data ? { ...b, favicon: data } : b;
+        }),
+      );
+      const html = exportSnapshotHtml({
+        mark,
+        bookmarks: offlineBookmarks,
+        categories,
+        locale,
+        baseUrl: window.location.origin,
+        background,
+      });
+      downloadTextFile(
+        `cloudmark-${mark}-snapshot.html`,
+        html,
+        "text/html;charset=utf-8",
+      );
+      toast.success(t("exportSnapshotDone", { count: bookmarks.length }));
+    } finally {
+      setSnapshotBusy(false);
+    }
   };
 
   const onFile = async (file: File) => {
@@ -359,10 +417,14 @@ export function ImportExportDialog({
               size="sm"
               variant="outline"
               className="h-9 w-full justify-start"
-              disabled={bookmarks.length === 0}
-              onClick={handleExportSnapshot}
+              disabled={bookmarks.length === 0 || snapshotBusy}
+              onClick={() => void handleExportSnapshot()}
             >
-              <Camera className="mr-1.5 h-3.5 w-3.5" />
+              {snapshotBusy ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Camera className="mr-1.5 h-3.5 w-3.5" />
+              )}
               {t("exportSnapshot")}
             </Button>
             <p className="text-2xs text-muted-foreground">{t("exportSnapshotNote")}</p>

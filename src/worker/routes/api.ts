@@ -55,11 +55,17 @@ api.get("/collections/:mark", async (c) => {
     c.req.query("token") ||
     null;
   try {
-    const data = await getCollectionPageData(c.env.DB, mark, viewToken);
+    const data = await getCollectionPageData(
+      c.env.DB,
+      mark,
+      viewToken,
+      c.req.header("CF-Connecting-IP") || "local",
+    );
     return c.json(data);
   } catch (e) {
     console.error(e);
-    return jsonError(c, e instanceof Error ? e.message : "Failed to load collection", 500);
+    const message = e instanceof Error ? e.message : "Failed to load collection";
+    return jsonError(c, message, /rate limit/i.test(message) ? 429 : 500);
   }
 });
 

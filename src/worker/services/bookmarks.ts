@@ -33,6 +33,7 @@ import {
   saveCategorySorts,
 } from "@/shared/db";
 import { MAX_BOOKMARKS_PER_MARK } from "@/shared/constants";
+import { isGoogleGlobe, sanitizeFaviconValue } from "@/shared/favicon";
 import type { ImportItemSchema } from "@/shared/schema";
 import {
   checkRateLimit,
@@ -48,6 +49,7 @@ import {
   type CollectionPageData,
   type CollectionSettings,
   DEFAULT_COLLECTION_SETTINGS,
+  DEFAULT_TOKEN_POLICY,
   defaultCategory,
   isDemoMark,
   type TokenPolicy,
@@ -64,13 +66,18 @@ export async function getFavicon(url: string, size: number = 64) {
     ];
     for (const candidate of candidates) {
       try {
-        const response = await fetch(candidate, { method: "HEAD", redirect: "follow" });
-        if (response.ok) return candidate;
+        const response = await fetch(candidate, { redirect: "follow" });
+        if (!response.ok) continue;
+        const type = response.headers.get("content-type") || "";
+        if (!type.startsWith("image/")) continue;
+        const buf = await response.arrayBuffer();
+        if (await isGoogleGlobe(buf)) continue;
+        return candidate;
       } catch {
         // Try the next favicon source.
       }
     }
-    return candidates[1];
+    return "";
   } catch {
     return "";
   }
@@ -90,6 +97,7 @@ export async function getCollectionPageData(
   db: D1Database,
   mark: string,
   viewToken?: string | null,
+  viewerIp = "unknown",
 ): Promise<CollectionPageData> {
   if (isDemoMark(mark)) {
     return {
@@ -112,6 +120,14 @@ export async function getCollectionPageData(
 
     // Private collection: require a valid write token to view bookmarks
     if (!settings.isPublic) {
+      // Token guesses on the read path must be throttled too, otherwise the
+      // write-token can be brute-forced here without touching rate-limited writes.
+      if (viewToken) {
+        const allowed = await checkRateLimit(db, `view:${mark}:${viewerIp}`);
+        if (!allowed) {
+          throw new Error("Rate limit exceeded. Please try again later.");
+        }
+      }
       const ok =
         Boolean(viewToken) &&
         (await verifyWriteToken(viewToken!, existing.write_token_hash));
@@ -437,6 +453,9 @@ export async function createBookmark(
     if (!isValidMarkFormat(mark)) {
       throw new Error("Invalid mark format for new collection");
     }
+    if (!isValidTokenForPolicy(token, DEFAULT_TOKEN_POLICY)) {
+      throw new Error("Token does not meet the selected security rules");
+    }
     const writeTokenHash = await hashWriteToken(token);
     try {
       await createCollection(db, mark, writeTokenHash);
@@ -476,7 +495,7 @@ export async function createBookmark(
   const uuid = crypto.randomUUID();
   const favicon =
     customFavicon && customFavicon.length > 0
-      ? customFavicon
+      ? sanitizeFaviconValue(customFavicon)
       : await getFavicon(url);
   const now = new Date().toISOString();
   const newBookmark: BookmarkInstance = {
@@ -541,7 +560,7 @@ export async function updateBookmarkRecord(
   if (faviconInput !== undefined && faviconInput !== null) {
     // Explicit client value: non-empty custom icon, or empty → re-fetch site icon
     favicon =
-      faviconInput.length > 0 ? faviconInput : await getFavicon(url);
+      faviconInput.length > 0 ? sanitizeFaviconValue(faviconInput) : await getFavicon(url);
   } else if (url !== existing.url) {
     favicon = await getFavicon(url);
   }
@@ -611,6 +630,9 @@ export async function importBookmarks(
   if (!collection) {
     if (!isValidMarkFormat(mark)) {
       throw new Error("Invalid mark format for new collection");
+    }
+    if (!isValidTokenForPolicy(token, DEFAULT_TOKEN_POLICY)) {
+      throw new Error("Token does not meet the selected security rules");
     }
     const writeTokenHash = await hashWriteToken(token);
     try {

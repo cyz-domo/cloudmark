@@ -102,7 +102,7 @@ export const collectionSettingsSchema = z.object({
   defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH),
   homeCategory: z.string().max(CATEGORY_MAX_LENGTH),
   isPublic: z.boolean(),
-  backgroundUrl: z.string().url().max(5 * 1024 * 1024).refine((value) => /^https?:\/\//i.test(value), "Background URL must start with http:// or https://").or(z.literal("")).default(""),
+  backgroundUrl: z.string().url().max(5 * 1024 * 1024).refine((value) => /^https?:\/\//i.test(value), "Background URL must start with http:// or https://").refine((value) => !/[\x00-\x1F\x7F\\]/.test(value), "Background URL contains invalid characters").or(z.literal("")).default(""),
 });
 
 export const updateCollectionSettingsSchema = z.object({
@@ -112,7 +112,7 @@ export const updateCollectionSettingsSchema = z.object({
   defaultCategory: z.string().min(1).max(CATEGORY_MAX_LENGTH).optional(),
   homeCategory: z.string().max(CATEGORY_MAX_LENGTH).optional(),
   isPublic: z.boolean().optional(),
-  backgroundUrl: z.string().url().max(5 * 1024 * 1024).refine((value) => /^https?:\/\//i.test(value), "Background URL must start with http:// or https://").optional().or(z.literal("")),
+  backgroundUrl: z.string().url().max(5 * 1024 * 1024).refine((value) => /^https?:\/\//i.test(value), "Background URL must start with http:// or https://").refine((value) => !/[\x00-\x1F\x7F\\]/.test(value), "Background URL contains invalid characters").optional().or(z.literal("")),
 });
 
 export const sortProfileSchema = z.object({ mark: markSchema, token: tokenSchema, id: z.string().min(1).max(64), category: z.string().min(1).max(CATEGORY_MAX_LENGTH), name: z.string().trim().min(1).max(80) });

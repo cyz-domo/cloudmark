@@ -410,7 +410,7 @@
     "exportHtml": "导出 HTML（浏览器）",
     "exportJson": "导出 JSON（Cloudmark）",
     "exportSnapshot": "导出本地快照（离线页面）",
-    "exportSnapshotNote": "快照是单个 HTML 文件，内嵌全部书签，双击即可离线打开，可设为浏览器主页;新标签页需借助 New Tab Redirect 类扩展指向该文件。数据为导出时的静态副本，更新后请重新导出。",
+    "exportSnapshotNote": "快照是单个 HTML 文件，内嵌全部书签，双击即可离线打开，可设为浏览器主页;新标签页需借助 New Tab Redirect 类扩展指向该文件。快照内可一键同步在线数据、导出 JSON/HTML、切换左侧分类与壁纸;同步结果保存在本浏览器，点「存快照」可下载最新副本。",
     "exportSnapshotDone": "已导出 {count} 个书签（本地快照）",
     "exportHtmlNote": "HTML 为 Netscape 格式，可在 Chrome / Firefox / Safari / Edge 书签管理器中导入。",
     "exportHtmlDone": "已导出 {count} 个书签（HTML）",

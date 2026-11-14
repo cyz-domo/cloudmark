@@ -225,16 +225,20 @@ export async function deleteCategory(db: D1Database, mark: string, category: str
     }
   }
 
+  // Escape LIKE wildcards so a category literally named e.g. "te%" cannot
+  // match unrelated categories such as "team / y".
+  const likeEscaped = category.replace(/[\\%_]/g, (ch) => "\\" + ch);
+  const likePrefix = `${likeEscaped} / %`;
   const results = await db.batch([
     ...bookmarkOps,
-    db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? OR default_category LIKE ? THEN 'default' ELSE default_category END, home_category = CASE WHEN home_category = ? OR home_category LIKE ? THEN '' ELSE home_category END, updated_at = ? WHERE mark = ?")
-      .bind(JSON.stringify(order), category, `${category} / %`, category, `${category} / %`, new Date().toISOString(), mark),
-    db.prepare("DELETE FROM sort_profile_items WHERE mark = ? AND (category = ? OR category LIKE ?)")
-      .bind(mark, category, `${category} / %`),
-    db.prepare("DELETE FROM sort_profiles WHERE mark = ? AND (category = ? OR category LIKE ?)")
-      .bind(mark, category, `${category} / %`),
-    db.prepare("DELETE FROM category_sorts WHERE mark = ? AND (category = ? OR category LIKE ?)")
-      .bind(mark, category, `${category} / %`),
+    db.prepare("UPDATE collections SET category_order = ?, default_category = CASE WHEN default_category = ? OR default_category LIKE ? ESCAPE '\\' THEN 'default' ELSE default_category END, home_category = CASE WHEN home_category = ? OR home_category LIKE ? ESCAPE '\\' THEN '' ELSE home_category END, updated_at = ? WHERE mark = ?")
+      .bind(JSON.stringify(order), category, likePrefix, category, likePrefix, new Date().toISOString(), mark),
+    db.prepare("DELETE FROM sort_profile_items WHERE mark = ? AND (category = ? OR category LIKE ? ESCAPE '\\')")
+      .bind(mark, category, likePrefix),
+    db.prepare("DELETE FROM sort_profiles WHERE mark = ? AND (category = ? OR category LIKE ? ESCAPE '\\')")
+      .bind(mark, category, likePrefix),
+    db.prepare("DELETE FROM category_sorts WHERE mark = ? AND (category = ? OR category LIKE ? ESCAPE '\\')")
+      .bind(mark, category, likePrefix),
   ]);
   return results.reduce((total, result) => total + (result.meta.changes ?? 0), 0);
 }

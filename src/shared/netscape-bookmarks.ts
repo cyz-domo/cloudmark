@@ -58,6 +58,7 @@ export function exportNetscapeHtml(
       "    <DL><p>",
     );
     for (const b of items) {
+      if (!/^https?:\/\//i.test(b.url)) continue;
       const addDate = Math.floor(new Date(b.createdAt).getTime() / 1000);
       const href = escape(b.url);
       const title = escape(b.title || b.url);

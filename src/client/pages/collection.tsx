@@ -492,7 +492,10 @@ export function CollectionPage() {
 
     if (settings.backgroundUrl) {
       if (canvas) {
-        const safeUrl = settings.backgroundUrl.replaceAll('"', "%22");
+        const safeUrl = settings.backgroundUrl
+          .replaceAll('"', "%22")
+          .replaceAll("\\", "%5C")
+          .replace(/[\x00-\x1F\x7F]/g, "");
         canvas.classList.add("has-collection-background");
         canvas.style.setProperty("--collection-background-image", `url("${safeUrl}")`);
       }
@@ -2043,6 +2046,7 @@ export function CollectionPage() {
         onOpenChange={setImportExportOpen}
         onImported={onImported}
         categories={categories}
+        backgroundUrl={settings.backgroundUrl}
       />
       {!isDemoMark(mark) && (
         <CollectionSettingsDialog

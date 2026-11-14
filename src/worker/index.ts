@@ -6,6 +6,18 @@ import type { Env } from "./env";
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.use("*", async (c, next) => {
+  await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("X-Frame-Options", "SAMEORIGIN");
+  c.res.headers.set("Content-Security-Policy", "frame-ancestors 'self'");
+  // Bookmarklet URLs carry the write token in the query string; never leak it via Referer.
+  c.res.headers.set(
+    "Referrer-Policy",
+    c.req.path === "/api/add" ? "no-referrer" : "strict-origin-when-cross-origin",
+  );
+});
+
 app.use("/api/*", cors());
 
 app.get("/api/health", (c) => c.json({ ok: true, service: "cloudmark" }));

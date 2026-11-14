@@ -189,6 +189,13 @@ export async function checkRateLimit(
     .first<{ count: number; window_start: number }>();
 
   if (!row || now - row.window_start > RATE_LIMIT_WINDOW_MS) {
+    if (!row) {
+      // Keys are minted per mark, so without pruning the table grows unbounded.
+      await db
+        .prepare("DELETE FROM rate_limits WHERE window_start < ?")
+        .bind(now - RATE_LIMIT_WINDOW_MS)
+        .run();
+    }
     await db
       .prepare(
         `INSERT INTO rate_limits (key, count, window_start) VALUES (?, 1, ?)

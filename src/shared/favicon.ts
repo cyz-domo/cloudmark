@@ -88,3 +88,46 @@ export function sanitizeSvg(svgText: string): string {
     .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(/javascript:/gi, "");
 }
+
+/**
+ * Google's s2 favicon service returns this identical generic globe PNG
+ * (sz=64) for any domain it has no cached icon for. Detect it so callers can
+ * fall back to a real icon or a clean letter mark instead of a misleading globe.
+ */
+export const GOOGLE_GLOBE_SHA256 =
+  "59bfe9bc385ad69f50793ce4a53397316d7a875a7148a63c16df9b674c6cda64";
+
+export async function isGoogleGlobe(buf: ArrayBuffer): Promise<boolean> {
+  if (buf.byteLength !== 726) return false;
+  const digest = await crypto.subtle.digest("SHA-256", buf);
+  const hex = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return hex === GOOGLE_GLOBE_SHA256;
+}
+
+/**
+ * Apply the upload path's SVG cleanup to API-supplied data-URI icons too.
+ * SVG icons must only ever be rendered via <img>, which blocks script execution.
+ */
+export function sanitizeFaviconValue(value: string): string {
+  if (!/^data:image\/svg\+xml/i.test(value)) return value;
+  const comma = value.indexOf(",");
+  if (comma === -1) return value;
+  const meta = value.slice(0, comma);
+  const body = value.slice(comma + 1);
+  const isBase64 = /;base64/i.test(meta);
+  let svg: string;
+  try {
+    svg = isBase64
+      ? decodeURIComponent(escape(atob(body)))
+      : decodeURIComponent(body);
+  } catch {
+    return value;
+  }
+  const clean = sanitizeSvg(svg);
+  if (clean === svg) return value;
+  return isBase64
+    ? `${meta},${btoa(unescape(encodeURIComponent(clean)))}`
+    : `${meta},${encodeURIComponent(clean)}`;
+}

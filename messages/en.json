@@ -410,7 +410,7 @@
     "exportHtml": "Export HTML (browsers)",
     "exportJson": "Export JSON (Cloudmark)",
     "exportSnapshot": "Export local snapshot (offline page)",
-    "exportSnapshotNote": "A single HTML file with all bookmarks embedded — double-click to open offline, or set it as your browser homepage. For the new-tab page, point a New Tab Redirect-style extension at the file. Data is a static copy; re-export after changes.",
+    "exportSnapshotNote": "A single HTML file with all bookmarks embedded — double-click to open offline, or set it as your browser homepage. For the new-tab page, point a New Tab Redirect-style extension at the file. The snapshot can sync live data, export JSON/HTML, and use a category sidebar and wallpaper; synced data lives in this browser — use Save snapshot to download a fresh copy.",
     "exportSnapshotDone": "Exported {count} bookmarks as a local snapshot",
     "exportHtmlNote": "HTML uses the Netscape format — Chrome / Firefox / Safari / Edge can import it via their bookmark manager.",
     "exportHtmlDone": "Exported {count} bookmarks as HTML",
